@@ -1,0 +1,54 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Large media & Binaries
+*.mov
+*.mp4
+*.gif
+*.zip
+*.tar.gz
+
+# Backend DB & Virtualenv
+backend/finance.db
+backend/*.db
+backend/venv/
+backend/env/
+backend/__pycache__/
+backend/*/__pycache__/
+backend/*.pyc
+backend/.env
+
+# Node & Frontend
+Flowly/node_modules/
+Flowly/.expo/
+Flowly/dist/
+Flowly/web-build/
+Flowly/npm-debug.*
+Flowly/yarn-debug.*
+Flowly/yarn-error.*
+Flowly/.env*
+!Flowly/.env.example
+
+# iOS & Xcode build artifacts
+Flowly/ios/Pods/
+Flowly/ios/Podfile.lock
+Flowly/ios/build/
+Flowly/ios/*.xcworkspace/xcuserdata/
+Flowly/ios/*.xcodeproj/xcuserdata/
+Flowly/ios/*.xcodeproj/project.xcworkspace/xcuserdata/
+Flowly/ios/.xcode.env.local
+Flowly/ios/DerivedData/
+Flowly/ios/main.jsbundle
+Flowly/ios/main/
+Flowly/ios/build.log
+
+# Android
+Flowly/android/.gradle/
+Flowly/android/app/build/
+Flowly/android/build/
+
+# iOS build-time copied assets
+Flowly/ios/assets/
+Flowly/ios/assets/**

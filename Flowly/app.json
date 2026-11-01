@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "Flowly",
+    "slug": "flowly",
+    "scheme": "flowly",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/app_icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Приложению нужен доступ к геолокации, чтобы выбирать ваше текущее местоположение на карте.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Приложению нужен доступ к геолокации даже при работе в фоновом режиме.",
+        "NSPhotoLibraryUsageDescription": "Нужен доступ к вашей фотопленке, чтобы выбрать изображение профиля.",
+        "NSPhotoLibraryAddUsageDescription": "Нужен доступ к фотопленке, чтобы сохранять выбранный аватар.",
+        "NSFaceIDUsageDescription": "Face ID используется для входа в приложение."
+      },
+      "bundleIdentifier": "com.anonymous.flowly"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/app_icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.anonymous.flowly"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router"
+    ]
+  }
+}
