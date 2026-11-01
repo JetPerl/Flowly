@@ -13,6 +13,7 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useNavigation, useRouter } from 'expo-router';
+import { apiRequest } from './api/client';
 
 import { useMainCurrency } from './currency/CurrencyContext';
 import CategoryIcon from './components/CategoryIcon';
@@ -43,17 +44,24 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
 };
 
 const DEFAULT_MAIN_CURRENCY = 'BYN';
+
+// const API_BASE_URL = 'http://192.168.100.96:8080';
+
   // дом
-  const API_BASE_URL = 'http://192.168.0.135:8000';
+  // const API_BASE_URL = 'http://192.168.0.135:8080';
+
+  // симулятор iOS на этом же Mac (если запускаете не на физическом телефоне)
+  const API_BASE_URL = 'http://localhost:8080';
 
   // телефон
-  // const API_BASE_URL = 'http://172.20.10.2:8000';
+  // const API_BASE_URL = 'http://172.20.10.2:8080';
 
-// соня
-// const API_BASE_URL = 'http://172.20.10.3:8000';
+  // соня
+  // const API_BASE_URL = 'http://172.20.10.3:8080';
 
-// мой t2
-// const API_BASE_URL = 'http://172.20.10.2:8000';
+  // мой t2
+  // const API_BASE_URL = 'http://172.20.10.2:8080';
+
 const HISTORY_ICON_SIZE = 44;
 const TRANSFER_ICON_SIZE = 24;
 
@@ -788,60 +796,47 @@ const AllAccountsScreen = () => {
     [applySectionTotals, mapApiOperationToHistoryItem, mergeTransferItems],
   );
 
-  const loadMeta = useCallback(async () => {
-    try {
-      const [accountsRes, ratesRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/accounts`),
-        fetch(`${API_BASE_URL}/rates`),
-      ]);
+const loadMeta = useCallback(async () => {
+  try {
+    const [accounts, rates] = await Promise.all([
+      apiRequest<AccountDto[]>('/accounts'),
+      apiRequest<Record<string, number>>('/rates').catch(() => ({ [MAIN_CURRENCY]: 1 })),
+    ]);
 
-      if (accountsRes.ok) {
-        const accounts = await accountsRes.json();
-        const normalized: AccountDto[] = Array.isArray(accounts) ? accounts : [];
-        const map: Record<number, AccountDto> = {};
-        normalized.forEach(acc => {
-          if (typeof acc?.id !== 'number') return;
-          map[acc.id] = acc;
-        });
-        setAccountsById(map);
-      } else {
-        setAccountsById({});
-      }
+    const normalized: AccountDto[] = Array.isArray(accounts) ? accounts : [];
+    const map: Record<number, AccountDto> = {};
+    normalized.forEach(acc => {
+      if (typeof acc?.id !== 'number') return;
+      map[acc.id] = acc;
+    });
+    setAccountsById(map);
 
-      if (ratesRes.ok) {
-        const rates = await ratesRes.json();
-        if (rates && typeof rates === 'object') {
-          setRatesMap((prev: Record<string, number>) => ({ ...prev, ...rates }));
-        }
-      }
-    } catch (e) {
-      console.warn('Ошибка загрузки счетов или курсов', e);
+    if (rates && typeof rates === 'object') {
+      setRatesMap((prev: Record<string, number>) => ({ ...prev, ...rates }));
     }
-  }, []);
+  } catch (e) {
+    console.warn('Ошибка загрузки счетов или курсов', e);
+  }
+}, [MAIN_CURRENCY]);
 
-  const loadHistory = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await fetch(`${API_BASE_URL}/operations/sections/`);
-      if (!res.ok) {
-        console.warn('Ошибка загрузки операций: ', res.status);
-        setLoading(false);
-        return;
-      }
-      const data = await res.json();
-      const sectionsResponse: any[] = Array.isArray(data)
-        ? data
-        : Array.isArray(data.sections)
-          ? data.sections
-          : [];
+const loadHistory = useCallback(async () => {
+  try {
+    setLoading(true);
+    // Запрос идет через apiRequest с префиксом /api/v1 и Bearer токеном, убран лишний слэш
+    const data = await apiRequest<any>('/operations/sections');
+    const sectionsResponse: any[] = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.sections)
+        ? data.sections
+        : [];
 
-      setRawSections(sectionsResponse);
-    } catch (e) {
-      console.warn('Ошибка загрузки операций', e);
-    } finally {
-      setLoading(false);
-    }
-  }, [API_BASE_URL]);
+    setRawSections(sectionsResponse);
+  } catch (e) {
+    console.warn('Ошибка загрузки операций', e);
+  } finally {
+    setLoading(false);
+  }
+}, []);
 
   const handleRefresh = useCallback(async () => {
     if (refreshing) return;

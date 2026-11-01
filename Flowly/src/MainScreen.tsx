@@ -2,6 +2,7 @@ import 'react-native-gesture-handler';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { apiRequest } from './api/client';
 import {
   View,
   Text,
@@ -226,19 +227,22 @@ const MainScreen = () => {
   const [accountsById, setAccountsById] = useState<Record<number, AccountDto>>({});
   const [accountsList, setAccountsList] = useState<AccountDto[]>([]);
   const [ratesMap, setRatesMap] = useState<Record<string, number>>({ [MAIN_CURRENCY]: 1 });
-  // const API_BASE_URL = 'http://192.168.100.96:8000';
+// const API_BASE_URL = 'http://192.168.100.96:8080';
 
   // дом
-  const API_BASE_URL = 'http://192.168.0.135:8000';
+  // const API_BASE_URL = 'http://192.168.0.135:8080';
+
+  // симулятор iOS на этом же Mac (если запускаете не на физическом телефоне)
+ const API_BASE_URL = 'http://localhost:8080';
 
   // телефон
-  // const API_BASE_URL = 'http://172.20.10.2:8000';
+  // const API_BASE_URL = 'http://172.20.10.2:8080';
 
   // соня
-  // const API_BASE_URL = 'http://172.20.10.3:8000';
+  // const API_BASE_URL = 'http://172.20.10.3:8080';
 
   // мой t2
-  // const API_BASE_URL = 'http://172.20.10.2:8000';
+  // const API_BASE_URL = 'http://172.20.10.2:8080';
 
   const [historySectionsState, setHistorySectionsState] = useState<HistorySection[]>([]);
   const [rawHistorySections, setRawHistorySections] = useState<any[]>([]);
@@ -269,14 +273,11 @@ const MainScreen = () => {
       }),
     [scrollY],
   );
-  const loadBalance = useCallback(async () => {
+  
+const loadBalance = useCallback(async () => {
     try {
-      const accountsRes = await fetch(`${API_BASE_URL}/accounts`);
-      const ratesRes = await fetch(`${API_BASE_URL}/rates`);
-      if (!accountsRes.ok || !ratesRes.ok) return;
-
-      const accounts = await accountsRes.json();
-      const rates = await ratesRes.json();
+      const accounts = await apiRequest<AccountDto[]>('/accounts');
+      const rates = await apiRequest<Record<string, number>>('/rates').catch(() => ({ [MAIN_CURRENCY]: 1 }));
 
       if (rates && typeof rates === 'object') {
         setRatesMap(prev => ({ ...prev, ...rates }));
@@ -316,7 +317,7 @@ const MainScreen = () => {
     } catch (e) {
       console.warn('Ошибка загрузки баланса', e);
     }
-  }, [API_BASE_URL, MAIN_CURRENCY]);
+  }, [MAIN_CURRENCY]);
 
   const sanitizeNumericInput = useCallback((input: string) => {
     if (!input) return '';
@@ -834,28 +835,26 @@ const MainScreen = () => {
     [mapApiOperationToHistoryItem, applySectionTotals, mergeTransferItems],
   );
 
-  const loadHistory = useCallback(async () => {
+const loadHistory = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/operations/sections/`);
-      if (!res.ok) {
-        console.warn('Ошибка загрузки операций: ', res.status);
-        return;
-      }
-      const data = await res.json();
+      const endpoint = activeAccountId
+        ? `/operations/sections?accountId=${activeAccountId}`
+        : '/operations/sections';
+
+      const data = await apiRequest<any>(endpoint);
       const sections: any[] = Array.isArray(data)
         ? data
-        : Array.isArray(data.sections)
+        : Array.isArray(data?.sections)
           ? data.sections
           : [];
 
       setRawHistorySections(sections);
       const normalized = mapSectionsFromApi(sections, activeAccountId);
       setHistorySectionsState(normalized);
-      console.log('Loaded history sections', normalized.length);
     } catch (e) {
       console.warn('Ошибка загрузки операций', e);
     }
-  }, [API_BASE_URL, activeAccountId, mapSectionsFromApi]);
+  }, [activeAccountId, mapSectionsFromApi]);
 
   const handleRefresh = useCallback(async () => {
     if (refreshing) return;

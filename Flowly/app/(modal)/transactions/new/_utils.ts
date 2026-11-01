@@ -16,19 +16,23 @@ export const CURRENCY_SYMBOLS: Record<string, string> = {
 };
 
 export const DEFAULT_MAIN_CURRENCY = 'BYN';
-  // export const API_BASE_URL = 'http://192.168.100.96:8000';
+
+// export const API_BASE_URL = 'http://192.168.100.96:8080';
 
   // дом
-  export const API_BASE_URL = 'http://192.168.0.135:8000';
+  // export const API_BASE_URL = 'http://192.168.0.135:8080';
+
+  // симулятор iOS на этом же Mac (если запускаете не на физическом телефоне)
+  export const API_BASE_URL = 'http://localhost:8080';
 
   // телефон
-  // export const API_BASE_URL = 'http://172.20.10.2:8000';
+  // export const API_BASE_URL = 'http://172.20.10.2:8080';
 
   // соня
-  // export const API_BASE_URL = 'http://172.20.10.3:8000';
+  // export const API_BASE_URL = 'http://172.20.10.3:8080';
 
   // мой t2
-  // export const API_BASE_URL = 'http://172.20.10.2:8000';
+  // export const API_BASE_URL = 'http://172.20.10.2:8080';
 
 const TIME_PICKER_LOCALE = 'en-US';
 export const HEADER_SAVE_EVENT = 'transactions:new:save';
