@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
  * Реализация REST-контроллера аутентификации.
  */
 
+
 @RestController
 @RequiredArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)

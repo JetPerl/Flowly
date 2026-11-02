@@ -12,6 +12,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useTransactionDraft } from '../_TransactionDraftContext';
 import { API_BASE_URL } from '../_utils';
+import { apiRequest } from '../../../../../src/api/client';
 
 type TagDto = {
   id: number;
@@ -36,11 +37,7 @@ export default function TransactionTagsScreen() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/tags`);
-        if (!res.ok) {
-          throw new Error(`status ${res.status}`);
-        }
-        const data = await res.json();
+        const data = await apiRequest<TagDto[]>('/tags');
         if (Array.isArray(data)) {
           setTags(
             data.map((t: any) => ({

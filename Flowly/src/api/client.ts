@@ -10,7 +10,7 @@ const TOKEN_KEY = 'flowly:jwt_token';
 
 // Токен разработчика, полученный при регистрации
 const HARDCODED_DEV_TOKEN =
-  'eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJpbHlhYnVybmFzQGdtYWlsLmNvbSIsImlhdCI6MTc5MzU0NDI0NywiZXhwIjoxNzkzNjMwNjQ3fQ.CUXmNkTzpIBmMB49TpQCbrGP-hXIyLO_viqGBF9w9FIxESzCNQAaV5VV_QfxwK--';
+  'eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJpbHlhYnVybmFzQGdtYWlsLmNvbSIsImlhdCI6MTc5MzYzNTA5OSwiZXhwIjoxNzkzNzIxNDk5fQ.YRejJziMmsP52BhozgLabn0Uu_yYgbgY20NBKPQcPo-loTI-8UHqew-1_suB_zgF';
 
 export async function setAuthToken(token: string): Promise<void> {
   await AsyncStorage.setItem(TOKEN_KEY, token);
@@ -18,7 +18,8 @@ export async function setAuthToken(token: string): Promise<void> {
 
 export async function getAuthToken(): Promise<string> {
   const stored = await AsyncStorage.getItem(TOKEN_KEY);
-  return stored || HARDCODED_DEV_TOKEN;
+  // Пока нет экрана логина в приложении, можно временно отдавать приоритет свежему HARDCODED_DEV_TOKEN:
+  return HARDCODED_DEV_TOKEN || stored || '';
 }
 
 export async function removeAuthToken(): Promise<void> {
@@ -43,6 +44,9 @@ export async function apiRequest<T>(endpoint: string, options: RequestInit = {})
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      await AsyncStorage.removeItem(TOKEN_KEY);
+    }
     const errorText = await response.text().catch(() => '');
     throw new Error(`API Error [${response.status}]: ${errorText}`);
   }
@@ -52,4 +56,40 @@ export async function apiRequest<T>(endpoint: string, options: RequestInit = {})
   }
 
   return response.json();
+}
+
+export interface OperationPageResponse {
+  items: any[];
+  pageInfo: {
+    displayed: number;
+    hasNext: boolean;
+    nextCursor: string | null;
+  };
+}
+
+/**
+ * Превращает плоский список операций от бэкенда (/api/v1/operations)
+ * в массив секций, сгруппированных по дням (YYYY-MM-DD), который ожидает фронтенд.
+ */
+export function groupOperationsIntoSections(items: any[]): { id: string; items: any[] }[] {
+  if (!Array.isArray(items) || items.length === 0) return [];
+
+  const groups: Record<string, any[]> = {};
+
+  items.forEach(op => {
+    const rawDate: string | undefined = op?.dateTime || op?.date_time || op?.date;
+    // Берем дату в формате YYYY-MM-DD
+    const dateKey = rawDate ? rawDate.split('T')[0] : 'unknown';
+    if (!groups[dateKey]) {
+      groups[dateKey] = [];
+    }
+    groups[dateKey].push(op);
+  });
+
+  return Object.entries(groups)
+    .sort(([dateA], [dateB]) => (dateA < dateB ? 1 : -1))
+    .map(([dateKey, groupItems]) => ({
+      id: dateKey,
+      items: groupItems,
+    }));
 }

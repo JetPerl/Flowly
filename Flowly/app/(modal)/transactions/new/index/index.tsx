@@ -28,11 +28,17 @@ import CategoryIcon from '../../../../../src/components/CategoryIcon';
 import { useTransactionDraft } from './../_TransactionDraftContext';
 import { API_BASE_URL, DEFAULT_MAIN_CURRENCY, HEADER_SAVE_EVENT, sanitizeNumericInput, getCurrencySymbol } from './../_utils';
 import { useMainCurrency } from '../../../../../src/currency/CurrencyContext';
+import { apiRequest } from '../../../../../src/api/client';
 
 const COLORS = {
   textMain: '#212121',
   textSecondary: '#757575',
   primary: '#2BAF8C',
+};
+
+const toLocalDateTimeString = (date: Date): string => {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 };
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -167,9 +173,7 @@ export default function NewTransactionScreen() {
     let cancelled = false;
     const loadRates = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/rates`);
-        if (!res.ok) return;
-        const data = await res.json();
+        const data = await apiRequest<Record<string, number>>('/rates');
         if (!cancelled && data && typeof data === 'object') {
           setRatesMap(data);
         }
@@ -390,90 +394,65 @@ export default function NewTransactionScreen() {
     setIsPinned,
   ]);
 
-  useEffect(() => {
+useEffect(() => {
     const opId = params?.operationId ? String(params.operationId) : null;
     if (!opId) return;
 
     let cancelled = false;
     const fetchOp = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/operations/${opId}`);
-        if (!res.ok) {
-          console.warn('Failed to fetch operation by id', res.status);
-          return;
-        }
-        const data = await res.json();
-        if (cancelled) return;
+        const data = await apiRequest<any>(`/operations/${opId}`);
+        if (cancelled || !data) return;
 
         setExistingOperationId(Number(opId));
-        if (data?.type) setType(data.type);
+        if (data?.type) {
+          const lowerType = String(data.type).toLowerCase();
+          if (lowerType === 'income' || lowerType === 'expense' || lowerType === 'transfer') {
+            setType(lowerType);
+          }
+        }
         if (data?.amount !== undefined) {
           setAmount(sanitizeNumericInput(String(data.amount)));
-        } else if (data?.amountLabel) {
-          setAmount(sanitizeNumericInput(String(data.amountLabel)));
         }
 
-        if (data?.category_id || data?.category) {
-          const catObj = data.category || {};
+        const catId = data?.categoryId ?? data?.category_id ?? data?.category?.id;
+        if (catId) {
           setCategory({
-            id: data.category_id || catObj.id,
-            name: catObj.name || 'Категория',
-            icon: catObj.icon || catObj?.icon,
-            color: catObj.color || catObj?.color,
-            parentName: catObj.parentName || null,
+            id: catId,
+            name: (typeof data.category === 'string' ? data.category : data.category?.name) || 'Категория',
+            icon: data.categoryIcon ?? data.category?.icon ?? null,
+            color: data.categoryColor ?? data.category?.color ?? null,
+            parentName: null,
           });
         }
 
-        if (data?.account_id || data?.account) {
-          const accObj = data.account || {};
+        const accId = data?.accountId ?? data?.account_id ?? data?.account?.id;
+        if (accId) {
           setAccount({
-            id: data.account_id || accObj.id,
-            name: accObj.name || 'Счёт',
-            currency: accObj.currency || data.currency,
-            icon: accObj.icon || null,
-            color: accObj.color || null,
+            id: accId,
+            name: (typeof data.account === 'string' ? data.account : data.account?.name) || 'Счёт',
+            currency: data.currency,
+            icon: data.accountIcon ?? data.account?.icon ?? null,
+            color: data.accountColor ?? data.account?.color ?? null,
           });
         }
 
-        if (data?.targetAccount?.id) {
-          const t = data.targetAccount;
-          setTargetAccount({
-            id: t.id,
-            name: t.name || 'Счёт',
-            currency: t.currency || data.currency,
-            icon: t.icon || null,
-            color: t.color || null,
-          });
-        }
-
-        if (data?.date_time || data?.dateTime) {
-          const d = new Date(data.date_time || data.dateTime);
+        if (data?.dateTime || data?.date_time) {
+          const d = new Date(data.dateTime || data.date_time);
           if (!Number.isNaN(d.getTime())) setDate(d);
         }
 
-        if (data?.recipient) setRecipient(data.recipient);
-        if (data?.place) setPlace(data.place);
-        if (data?.note) setNote(data.note);
-        if (data?.is_pinned !== undefined) setIsPinned(!!data.is_pinned);
-        if (data?.transfer_id !== undefined && data?.transfer_id !== null) {
-          setExistingTransferId(data.transfer_id);
+        if (data?.recipient !== undefined) setRecipient(data.recipient || '');
+        if (data?.place !== undefined) setPlace(data.place || '');
+        if (data?.note !== undefined) setNote(data.note || '');
+        if (data?.isPinned !== undefined || data?.is_pinned !== undefined) {
+          setIsPinned(Boolean(data.isPinned ?? data.is_pinned));
         }
-        if (data?.photo_url || data?.photoUrl) {
-          const uri = data.photo_url || data.photoUrl;
-          if (typeof uri === 'string' && uri.trim().length > 0) {
-            setPhotoUri(uri);
-          }
+        if (data?.transferId !== undefined || data?.transfer_id !== undefined) {
+          setExistingTransferId(data.transferId ?? data.transfer_id);
         }
-        if (Array.isArray(data?.tags)) {
-          setTags(
-            data.tags
-              .map((t: any) => ({
-                id: t.id,
-                name: t.name,
-                color: t.color,
-              }))
-              .filter((t: any) => t.id !== undefined && t.name),
-          );
+        if (data?.photoUrl || data?.photo_url) {
+          setPhotoUri(data.photoUrl || data.photo_url);
         }
       } catch (e) {
         console.warn('Failed to fetch operation by id', e);
@@ -484,7 +463,9 @@ export default function NewTransactionScreen() {
     return () => {
       cancelled = true;
     };
-  }, [
+  }, [params?.operationId]);
+  
+  [
     API_BASE_URL,
     params?.operationId,
     sanitizeNumericInput,
@@ -499,7 +480,7 @@ export default function NewTransactionScreen() {
     setType,
     setPhotoUri,
     setIsPinned,
-  ]);
+  ];
 
   useEffect(() => {
     if (params?.duplicate === '1') {
@@ -690,65 +671,46 @@ export default function NewTransactionScreen() {
     }
 
     // Обычная операция
+    // Обычная операция
     if (!draft.account?.id || !draft.category?.id) {
-      console.warn('Не хватает account_id или category_id для отправки операции');
+      console.warn('Не хватает accountId или categoryId для отправки операции');
       return false;
     }
 
-    const payload = {
-      account_id: draft.account.id,
-      category_id: draft.category.id,
-      type: draft.type,
+    const numericId =
+      existingOperationId && !Number.isNaN(existingOperationId)
+        ? Number(existingOperationId)
+        : null;
+    const isEditing = numericId !== null;
+
+    // Наш бэкенд OperationPatchRequest ожидает camelCase и OperationType в UPPERCASE (EXPENSE / INCOME)
+    const patchPayload = {
+      categoryId: draft.category.id,
+      accountId: draft.account.id,
       amount: amountSafe,
-      currency: (draft.currency || DEFAULT_MAIN_CURRENCY).toUpperCase(),
-      merchant: draft.recipient || '',
-      place: draft.place || '',
-      recipient: draft.recipient || '',
+      type: draft.type.toUpperCase(), // "EXPENSE" | "INCOME"
+      dateTime: toLocalDateTimeString(draft.date),
       note: draft.note || '',
-      photo_url: photoUrl,
-      is_pinned: isPinned,
-      date_time: draft.date.toISOString(),
-      tag_ids: buildTagIds(),
-      related_account_id: null,
-      transfer_id: null,
+      recipient: draft.recipient || '',
+      place: draft.place || '',
+      isPinned: isPinned,
     };
 
-    console.log('Saving operation payload', payload);
-
-    const numericId = existingOperationId && !Number.isNaN(existingOperationId)
-      ? Number(existingOperationId)
-      : null;
-    const isEditing = numericId !== null;
-    const url = isEditing
-      ? `${API_BASE_URL}/operations/${numericId}`
-      : `${API_BASE_URL}/operations/`;
-    const method = isEditing ? 'PUT' : 'POST';
-
     try {
-      const res = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-        redirect: 'follow',
-      });
+      const data = isEditing
+        ? await apiRequest<any>(`/operations/${numericId}`, {
+            method: 'PATCH',
+            body: JSON.stringify(patchPayload),
+          })
+        : await apiRequest<any>('/operations', {
+            method: 'POST',
+            body: JSON.stringify(patchPayload),
+          });
 
-      if (!res.ok) {
-        const text = await res.text().catch(() => '');
-        console.warn('Ошибка сохранения операции в БД: ', res.status, text);
-        const message = text ? `${res.status}: ${text}` : `Код ответа: ${res.status}`;
-        Alert.alert('Не удалось сохранить', message);
-        setSaveError(message);
-        return false;
-      }
-
-      const data = await res.json().catch(() => null);
       const persistedId = data?.id ?? numericId ?? null;
-      console.log('Операция сохранена в БД', data);
       DeviceEventEmitter.emit('operation:saved', {
         id: persistedId,
-        ...payload,
+        ...data,
       });
       setSaveError(null);
       if (persistedId && !existingOperationId) {
@@ -757,8 +719,8 @@ export default function NewTransactionScreen() {
       return true;
     } catch (e: any) {
       const msg = e?.message || 'Неизвестная ошибка сети';
-      console.warn('Ошибка сети при сохранении операции', e);
-      Alert.alert('Ошибка сети', msg);
+      console.warn('Ошибка при сохранении операции', e);
+      Alert.alert('Не удалось сохранить', msg);
       setSaveError(msg);
       return false;
     }

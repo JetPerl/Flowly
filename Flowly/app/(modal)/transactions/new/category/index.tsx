@@ -11,6 +11,7 @@ import Animated from 'react-native-reanimated';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import CategoryIcon from '../../../../../src/components/CategoryIcon';
 import { useTransactionDraft } from './../_TransactionDraftContext';
+import { apiRequest } from '../../../../../src/api/client';
 import { API_BASE_URL } from './../_utils';
 
 type IncomeCategoryDto = {
@@ -58,15 +59,11 @@ export default function TransactionCategoryScreen() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/categories/tree`);
-        if (!res.ok) {
-          throw new Error(`status ${res.status}`);
-        }
-        const data = await res.json();
-        if (Array.isArray(data.income)) {
+        const data = await apiRequest<{ income?: IncomeCategoryDto[]; expense?: ExpenseCategoryDto[] }>('/categories/tree');
+        if (Array.isArray(data?.income)) {
           setIncomeCategories(data.income);
         }
-        if (Array.isArray(data.expense)) {
+        if (Array.isArray(data?.expense)) {
           setExpenseCategories(data.expense);
         }
       } catch (e) {

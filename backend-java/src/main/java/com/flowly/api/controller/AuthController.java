@@ -1,9 +1,9 @@
 package com.flowly.api.controller;
 
+import com.flowly.api.config.openapi.annotations.BaseErrorResponses;
 import com.flowly.api.model.request.LoginRequest;
 import com.flowly.api.model.request.RegisterRequest;
 import com.flowly.api.model.response.AuthResponse;
-import com.flowly.api.model.response.HttpErrorResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -28,9 +28,10 @@ public interface AuthController {
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Пользователь успешно зарегистрирован",
                     content = @Content(schema = @Schema(implementation = AuthResponse.class))),
-            @ApiResponse(responseCode = "400", description = "Ошибка валидации входных данных или email уже занят",
-                    content = @Content(schema = @Schema(implementation = HttpErrorResponse.class)))
+            @ApiResponse(responseCode = "400", ref = "#/components/responses/BadRequest"),
+            @ApiResponse(responseCode = "409", description = "Конфликт: пользователь с таким email уже существует")
     })
+    @BaseErrorResponses
     @PostMapping("/register")
     ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request);
 
@@ -38,9 +39,9 @@ public interface AuthController {
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Успешная авторизация",
                     content = @Content(schema = @Schema(implementation = AuthResponse.class))),
-            @ApiResponse(responseCode = "401", description = "Неверный логин или пароль",
-                    content = @Content(schema = @Schema(implementation = HttpErrorResponse.class)))
+            @ApiResponse(responseCode = "400", ref = "#/components/responses/BadRequest")
     })
+    @BaseErrorResponses
     @PostMapping("/login")
     ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request);
 }
