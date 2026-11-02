@@ -10,6 +10,7 @@ import {
 import Animated, { FadeInDown, FadeOutUp, Layout } from 'react-native-reanimated';
 import CategoryIcon from '../../../../../src/components/CategoryIcon';
 import { useTransactionDraft } from '../_TransactionDraftContext';
+import { apiRequest } from '../../../../../src/api/client';
 import { API_BASE_URL } from '../_utils';
 
 type Account = {
@@ -56,11 +57,7 @@ export default function TransactionAccountScreen() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/accounts`);
-        if (!res.ok) {
-          throw new Error(`status ${res.status}`);
-        }
-        const data = await res.json();
+        const data = await apiRequest<Account[]>('/accounts');
         if (Array.isArray(data)) {
           setAccounts(data);
         }

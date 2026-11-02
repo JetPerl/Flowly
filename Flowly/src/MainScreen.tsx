@@ -2,7 +2,11 @@ import 'react-native-gesture-handler';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { apiRequest } from './api/client';
+import {
+  apiRequest,
+  groupOperationsIntoSections,
+  type OperationPageResponse,
+} from './api/client';
 import {
   View,
   Text,
@@ -273,7 +277,7 @@ const MainScreen = () => {
       }),
     [scrollY],
   );
-  
+
 const loadBalance = useCallback(async () => {
     try {
       const accounts = await apiRequest<AccountDto[]>('/accounts');
@@ -474,10 +478,11 @@ const loadBalance = useCallback(async () => {
   );
 
   // Приводим объект операции от API к формату карточек на экране
-  const mapApiOperationToHistoryItem = useCallback(
+const mapApiOperationToHistoryItem = useCallback(
     (op: any): HistoryItem => {
+      const rawType = typeof op?.type === 'string' ? op.type.toLowerCase() : 'expense';
       const type: 'income' | 'expense' | 'transfer' =
-        op?.type === 'income' ? 'income' : op?.type === 'transfer' ? 'transfer' : 'expense';
+        rawType === 'income' ? 'income' : rawType === 'transfer' ? 'transfer' : 'expense';
 
       const amountNumber =
         typeof op?.amount === 'number'
@@ -501,26 +506,34 @@ const loadBalance = useCallback(async () => {
         parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate.getTime() : null;
 
       const normalizeId = (val: any) => {
+        if (val === null || val === undefined) return null;
         const num = typeof val === 'number' ? val : Number(val);
         return Number.isFinite(num) ? num : null;
       };
 
-      const accountId = normalizeId(op?.account_id);
-      const relatedAccountId = normalizeId(op?.related_account_id);
+      // Поддержка и camelCase (наш новый бэкенд), и snake_case
+      const accountId = normalizeId(op?.accountId ?? op?.account_id);
+      const relatedAccountId = normalizeId(op?.relatedAccountId ?? op?.related_account_id);
+      const categoryId = normalizeId(op?.categoryId ?? op?.category_id ?? op?.category?.id);
+      const transferId = op?.transferId ?? op?.transfer_id ?? null;
 
-      const accountTitle =
-        op?.account ||
-        (accountId && accountsById[accountId]?.name) ||
-        'Основной счёт';
       const accountMeta = accountId ? accountsById[accountId] : undefined;
+      const accountTitle =
+        (typeof op?.account === 'string' ? op.account : op?.account?.name) ||
+        accountMeta?.name ||
+        'Основной счёт';
+
       const accountIcon =
-        (typeof op?.account === 'object' && op?.account?.icon) ||
+        op?.accountIcon ||
         op?.account_icon ||
+        (typeof op?.account === 'object' && op?.account?.icon) ||
         accountMeta?.icon ||
         null;
+
       const accountColorRaw =
-        (typeof op?.account === 'object' && op?.account?.color) ||
+        op?.accountColor ||
         op?.account_color ||
+        (typeof op?.account === 'object' && op?.account?.color) ||
         accountMeta?.color ||
         null;
       const accountColor =
@@ -529,63 +542,73 @@ const loadBalance = useCallback(async () => {
           : null;
 
       const categoryName =
-        typeof op?.category === 'string'
+        typeof op?.category === 'string' && op.category.trim().length > 0
           ? op.category
           : op?.category?.name || 'Без категории';
 
       const categoryIcon =
-        (typeof op?.category === 'object' && op?.category?.icon) || op?.icon || null;
+        op?.categoryIcon ||
+        op?.category_icon ||
+        (typeof op?.category === 'object' && op?.category?.icon) ||
+        op?.icon ||
+        null;
+
+      const categoryColor =
+        op?.categoryColor ||
+        op?.category_color ||
+        op?.color ||
+        op?.category?.color ||
+        COLORS.primary;
 
       const recipient =
         op?.recipient ||
-        op?.counterparty ||
-        op?.payer ||
-        op?.payee ||
         op?.merchant ||
+        op?.counterparty ||
         '';
 
       const tags: TagDto[] = Array.isArray(op?.tags)
         ? op.tags
-          .map((t: any): TagDto => ({
-            id: t.id,
-            name: t.name,
-            color: t.color,
-          }))
-          .filter((t: TagDto) => t.id !== undefined && t.name)
+            .map((t: any): TagDto => ({
+              id: t.id,
+              name: t.name,
+              color: t.color,
+            }))
+            .filter((t: TagDto) => t.id !== undefined && t.name)
         : [];
 
       const photoUrl =
-        typeof op?.photo_url === 'string'
-          ? op.photo_url
-          : typeof op?.photoUrl === 'string'
-            ? op.photoUrl
+        typeof op?.photoUrl === 'string'
+          ? op.photoUrl
+          : typeof op?.photo_url === 'string'
+            ? op.photo_url
             : null;
+
       const isPinned =
-        typeof op?.is_pinned === 'boolean'
-          ? op.is_pinned
-          : typeof op?.isPinned === 'boolean'
-            ? op.isPinned
+        typeof op?.isPinned === 'boolean'
+          ? op.isPinned
+          : typeof op?.is_pinned === 'boolean'
+            ? op.is_pinned
             : false;
 
       return {
         id: String(op?.id ?? `op-${Date.now()}`),
         category: categoryName,
-        categoryId: op?.category_id || op?.category?.id || null,
+        categoryId,
         categoryIcon,
         merchant: op?.merchant || '',
         amountLabel,
         amountValue: amountNumber,
         currency: op?.currency || inferCurrencyCodeFromLabel(amountLabel) || null,
-        color: op?.color || op?.category?.color || COLORS.purple,
+        color: categoryColor,
         account: accountTitle,
         accountId,
         accountIcon,
         accountColor,
         dateTime:
-          typeof op?.dateTime === 'string'
-            ? op.dateTime
-            : parsedDate && !Number.isNaN(parsedDate.getTime())
-              ? formatDateTimeRu(parsedDate)
+          parsedDate && !Number.isNaN(parsedDate.getTime())
+            ? formatDateTimeRu(parsedDate)
+            : typeof op?.dateTime === 'string'
+              ? op.dateTime
               : '',
         timestamp,
         type,
@@ -593,10 +616,10 @@ const loadBalance = useCallback(async () => {
         place: op?.place || '',
         note: op?.note || '',
         tags,
-        transferId: op?.transfer_id ?? null,
+        transferId,
         relatedAccountId,
-        transferOperationIds: op?.transfer_id
-          ? [op?.id].filter(id => id !== undefined && id !== null).map(String)
+        transferOperationIds: transferId
+          ? [op?.id].filter((id: any) => id !== undefined && id !== null).map(String)
           : undefined,
         photoUrl,
         isPinned,
@@ -838,15 +861,12 @@ const loadBalance = useCallback(async () => {
 const loadHistory = useCallback(async () => {
     try {
       const endpoint = activeAccountId
-        ? `/operations/sections?accountId=${activeAccountId}`
-        : '/operations/sections';
+        ? `/operations?accountId=${activeAccountId}&limit=50`
+        : '/operations?limit=50';
 
-      const data = await apiRequest<any>(endpoint);
-      const sections: any[] = Array.isArray(data)
-        ? data
-        : Array.isArray(data?.sections)
-          ? data.sections
-          : [];
+      const data = await apiRequest<OperationPageResponse>(endpoint);
+      const items = Array.isArray(data?.items) ? data.items : [];
+      const sections = groupOperationsIntoSections(items);
 
       setRawHistorySections(sections);
       const normalized = mapSectionsFromApi(sections, activeAccountId);

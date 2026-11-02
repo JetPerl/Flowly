@@ -19,6 +19,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.FieldDefaults;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -61,4 +62,17 @@ public class Operation {
 
     @Column(name = "note")
     String comment;
+
+    @Column(name = "recipient")
+    String recipient;
+
+    @Column(name = "place")
+    String place;
+
+    @Column(name = "is_pinned")
+    Boolean isPinned;
+
+    @Column(name = "updated_at")
+    @UpdateTimestamp
+    LocalDateTime updatedAt;
 }

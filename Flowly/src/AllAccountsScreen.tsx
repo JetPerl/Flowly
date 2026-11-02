@@ -13,7 +13,11 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useNavigation, useRouter } from 'expo-router';
-import { apiRequest } from './api/client';
+import {
+  apiRequest,
+  groupOperationsIntoSections,
+  type OperationPageResponse,
+} from './api/client';
 
 import { useMainCurrency } from './currency/CurrencyContext';
 import CategoryIcon from './components/CategoryIcon';
@@ -438,10 +442,11 @@ const AllAccountsScreen = () => {
     [computeSectionTotalLabel],
   );
 
-  const mapApiOperationToHistoryItem = useCallback(
+const mapApiOperationToHistoryItem = useCallback(
     (op: any): HistoryItem => {
+      const rawType = typeof op?.type === 'string' ? op.type.toLowerCase() : 'expense';
       const type: 'income' | 'expense' | 'transfer' =
-        op?.type === 'income' ? 'income' : op?.type === 'transfer' ? 'transfer' : 'expense';
+        rawType === 'income' ? 'income' : rawType === 'transfer' ? 'transfer' : 'expense';
 
       const amountNumber =
         typeof op?.amount === 'number'
@@ -465,26 +470,34 @@ const AllAccountsScreen = () => {
         parsedDate && !Number.isNaN(parsedDate.getTime()) ? parsedDate.getTime() : null;
 
       const normalizeId = (val: any) => {
+        if (val === null || val === undefined) return null;
         const num = typeof val === 'number' ? val : Number(val);
         return Number.isFinite(num) ? num : null;
       };
 
-      const accountId = normalizeId(op?.account_id);
-      const relatedAccountId = normalizeId(op?.related_account_id);
+      // Поддержка и camelCase (наш новый бэкенд), и snake_case
+      const accountId = normalizeId(op?.accountId ?? op?.account_id);
+      const relatedAccountId = normalizeId(op?.relatedAccountId ?? op?.related_account_id);
+      const categoryId = normalizeId(op?.categoryId ?? op?.category_id ?? op?.category?.id);
+      const transferId = op?.transferId ?? op?.transfer_id ?? null;
 
-      const accountTitle =
-        op?.account ||
-        (accountId && accountsById[accountId]?.name) ||
-        'Основной счёт';
       const accountMeta = accountId ? accountsById[accountId] : undefined;
+      const accountTitle =
+        (typeof op?.account === 'string' ? op.account : op?.account?.name) ||
+        accountMeta?.name ||
+        'Основной счёт';
+
       const accountIcon =
-        (typeof op?.account === 'object' && op?.account?.icon) ||
+        op?.accountIcon ||
         op?.account_icon ||
+        (typeof op?.account === 'object' && op?.account?.icon) ||
         accountMeta?.icon ||
         null;
+
       const accountColorRaw =
-        (typeof op?.account === 'object' && op?.account?.color) ||
+        op?.accountColor ||
         op?.account_color ||
+        (typeof op?.account === 'object' && op?.account?.color) ||
         accountMeta?.color ||
         null;
       const accountColor =
@@ -493,63 +506,73 @@ const AllAccountsScreen = () => {
           : null;
 
       const categoryName =
-        typeof op?.category === 'string'
+        typeof op?.category === 'string' && op.category.trim().length > 0
           ? op.category
           : op?.category?.name || 'Без категории';
 
       const categoryIcon =
-        (typeof op?.category === 'object' && op?.category?.icon) || op?.icon || null;
+        op?.categoryIcon ||
+        op?.category_icon ||
+        (typeof op?.category === 'object' && op?.category?.icon) ||
+        op?.icon ||
+        null;
+
+      const categoryColor =
+        op?.categoryColor ||
+        op?.category_color ||
+        op?.color ||
+        op?.category?.color ||
+        COLORS.primary;
 
       const recipient =
         op?.recipient ||
-        op?.counterparty ||
-        op?.payer ||
-        op?.payee ||
         op?.merchant ||
+        op?.counterparty ||
         '';
 
       const tags: TagDto[] = Array.isArray(op?.tags)
         ? op.tags
-          .map((t: any): TagDto => ({
-            id: t.id,
-            name: t.name,
-            color: t.color,
-          }))
-          .filter((t: TagDto) => t.id !== undefined && t.name)
+            .map((t: any): TagDto => ({
+              id: t.id,
+              name: t.name,
+              color: t.color,
+            }))
+            .filter((t: TagDto) => t.id !== undefined && t.name)
         : [];
 
       const photoUrl =
-        typeof op?.photo_url === 'string'
-          ? op.photo_url
-          : typeof op?.photoUrl === 'string'
-            ? op.photoUrl
+        typeof op?.photoUrl === 'string'
+          ? op.photoUrl
+          : typeof op?.photo_url === 'string'
+            ? op.photo_url
             : null;
+
       const isPinned =
-        typeof op?.is_pinned === 'boolean'
-          ? op.is_pinned
-          : typeof op?.isPinned === 'boolean'
-            ? op.isPinned
+        typeof op?.isPinned === 'boolean'
+          ? op.isPinned
+          : typeof op?.is_pinned === 'boolean'
+            ? op.is_pinned
             : false;
 
       return {
         id: String(op?.id ?? `op-${Date.now()}`),
         category: categoryName,
-        categoryId: op?.category_id || op?.category?.id || null,
+        categoryId,
         categoryIcon,
         merchant: op?.merchant || '',
         amountLabel,
         amountValue: amountNumber,
         currency: op?.currency || inferCurrencyCodeFromLabel(amountLabel) || null,
-        color: op?.color || op?.category?.color || COLORS.primary,
+        color: categoryColor,
         account: accountTitle,
         accountId,
         accountIcon,
         accountColor,
         dateTime:
-          typeof op?.dateTime === 'string'
-            ? op.dateTime
-            : parsedDate && !Number.isNaN(parsedDate.getTime())
-              ? formatDateTimeRu(parsedDate)
+          parsedDate && !Number.isNaN(parsedDate.getTime())
+            ? formatDateTimeRu(parsedDate)
+            : typeof op?.dateTime === 'string'
+              ? op.dateTime
               : '',
         timestamp,
         type,
@@ -557,9 +580,9 @@ const AllAccountsScreen = () => {
         place: op?.place || '',
         note: op?.note || '',
         tags,
-        transferId: op?.transfer_id ?? null,
+        transferId,
         relatedAccountId,
-        transferOperationIds: op?.transfer_id
+        transferOperationIds: transferId
           ? [op?.id].filter((id: any) => id !== undefined && id !== null).map(String)
           : undefined,
         photoUrl,
@@ -819,36 +842,55 @@ const loadMeta = useCallback(async () => {
   }
 }, [MAIN_CURRENCY]);
 
-const loadHistory = useCallback(async () => {
-  try {
-    setLoading(true);
-    // Запрос идет через apiRequest с префиксом /api/v1 и Bearer токеном, убран лишний слэш
-    const data = await apiRequest<any>('/operations/sections');
-    const sectionsResponse: any[] = Array.isArray(data)
-      ? data
-      : Array.isArray(data?.sections)
-        ? data.sections
-        : [];
+const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
-    setRawSections(sectionsResponse);
-  } catch (e) {
-    console.warn('Ошибка загрузки операций', e);
-  } finally {
-    setLoading(false);
-  }
-}, []);
+  const loadHistory = useCallback(async (cursor?: string | null) => {
+    try {
+      if (cursor) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
+
+      const query = new URLSearchParams();
+      query.set('limit', '20');
+      if (cursor) {
+        query.set('cursor', cursor);
+      }
+
+      const data = await apiRequest<OperationPageResponse>(`/operations?${query.toString()}`);
+      const items = Array.isArray(data?.items) ? data.items : [];
+      setNextCursor(data?.pageInfo?.hasNext ? data.pageInfo.nextCursor : null);
+
+      setRawSections(prev => {
+        // Достаем старые сырые элементы
+        const prevItems = cursor ? prev.flatMap(s => s.items || []) : [];
+        
+        // Объединяем и убираем дубликаты по id на случай повторного срабатывания курсора
+        const map = new Map();
+        [...prevItems, ...items].forEach(op => {
+          if (op?.id !== undefined && op?.id !== null) {
+            map.set(String(op.id), op);
+          }
+        });
+
+        return groupOperationsIntoSections(Array.from(map.values()));
+      });
+    } catch (e) {
+      console.warn('Ошибка загрузки операций', e);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, []);
 
   const handleRefresh = useCallback(async () => {
     if (refreshing) return;
     setRefreshing(true);
-    await Promise.allSettled([loadMeta(), loadHistory()]);
+    await Promise.allSettled([loadMeta(), loadHistory(null)]);
     setRefreshing(false);
   }, [loadHistory, loadMeta, refreshing]);
-
-  useEffect(() => {
-    loadMeta();
-    loadHistory();
-  }, [loadHistory, loadMeta]);
 
   useEffect(() => {
     const savedSub = DeviceEventEmitter.addListener('operation:saved', handleRefresh);
@@ -858,6 +900,11 @@ const loadHistory = useCallback(async () => {
       deletedSub.remove();
     };
   }, [handleRefresh]);
+
+useEffect(() => {
+    loadMeta();
+    loadHistory(null);
+  }, [loadHistory, loadMeta])
 
   useEffect(() => {
     if (!rawSections || rawSections.length === 0) {
@@ -1095,13 +1142,19 @@ const loadHistory = useCallback(async () => {
       <StatusBar barStyle="dark-content" />
       <SectionList
         sections={sectionsForList}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item, index) => `${item.id}-${index}`}
         renderItem={renderHistoryRow}
         renderSectionHeader={renderSectionHeader}
         stickySectionHeadersEnabled
         contentContainerStyle={styles.listContent}
         contentInsetAdjustmentBehavior="automatic"
         SectionSeparatorComponent={() => <View style={styles.sectionDivider} />}
+        onEndReached={() => {
+          if (nextCursor && !loadingMore && !loading) {
+            loadHistory(nextCursor);
+          }
+        }}
+        onEndReachedThreshold={0.4}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
