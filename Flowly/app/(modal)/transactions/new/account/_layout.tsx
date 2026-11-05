@@ -6,13 +6,12 @@ import { Ionicons } from '@expo/vector-icons';
 export default function AccountLayout() {
   return (
     <Stack
+      id="account-stack"
       screenOptions={{
         presentation: 'modal',
         headerLargeTitle: false,
         headerShown: true,
         headerTransparent: true,
-        // iOS native navigation style
-
         headerLeft: () => (
           <Pressable
             onPress={() => router.back()}
@@ -71,12 +70,9 @@ export default function AccountLayout() {
                 color="black"
               />
             </Pressable>
-            
           </Pressable>
-          
         ),
       }}
-      initialRouteName="index"
     />
   );
 }

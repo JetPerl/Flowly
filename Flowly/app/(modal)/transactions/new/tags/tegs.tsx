@@ -10,8 +10,7 @@ import {
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
-import { useTransactionDraft } from '../_TransactionDraftContext';
-import { API_BASE_URL } from '../_utils';
+import { useTransactionDraft } from '../../../../../src/context/_TransactionDraftContext';
 import { apiRequest } from '../../../../../src/api/client';
 
 type TagDto = {

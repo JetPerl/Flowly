@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 export default function SecurityCodeLayout() {
   return (
     <Stack
+      id="security-code-stack"
       screenOptions={{
         presentation: 'modal',
         headerLargeTitle: false,
@@ -33,7 +34,6 @@ export default function SecurityCodeLayout() {
           </Pressable>
         ),
       }}
-      initialRouteName="index"
     />
   );
 }

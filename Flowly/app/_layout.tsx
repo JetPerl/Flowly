@@ -18,6 +18,7 @@ export default function RootLayout() {
               <SecurityCodeProvider>
                 <BottomSheetModalProvider>
                   <Stack
+                    id="root-stack"
                     screenOptions={{
                       headerShown: true,
                       headerTransparent: true,

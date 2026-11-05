@@ -32,23 +32,23 @@ public class Category {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id")
     Integer id;
+
+    @Column(nullable = false)
+    String name;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    CategoryType type;
+
+    String icon;
+
+    String color;
+
+    @Column(name = "is_hidden")
+    Boolean isHidden;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     User user;
-
-    @Column(name = "name", nullable = false)
-    String name;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "type", nullable = false, length = 20)
-    CategoryType type;
-
-    @Column(name = "icon")
-    String icon;
-
-    @Column(name = "color")
-    String color;
 }

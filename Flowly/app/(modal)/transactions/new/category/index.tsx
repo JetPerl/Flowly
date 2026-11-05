@@ -10,9 +10,8 @@ import {
 import Animated from 'react-native-reanimated';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import CategoryIcon from '../../../../../src/components/CategoryIcon';
-import { useTransactionDraft } from './../_TransactionDraftContext';
+import { useTransactionDraft } from '../../../../../src/context/_TransactionDraftContext';
 import { apiRequest } from '../../../../../src/api/client';
-import { API_BASE_URL } from './../_utils';
 
 type IncomeCategoryDto = {
   id: number;
@@ -34,6 +33,14 @@ type ExpenseCategoryDto = {
   color?: string | null;
   icon?: string | null;
   children?: ExpenseCategoryChildDto[];
+};
+
+type CategoryDto = {
+  id: number;
+  name: string;
+  type?: 'INCOME' | 'EXPENSE';
+  icon?: string | null;
+  color?: string | null;
 };
 
 const COLORS = {
@@ -59,12 +66,33 @@ export default function TransactionCategoryScreen() {
   useEffect(() => {
     const load = async () => {
       try {
-        const data = await apiRequest<{ income?: IncomeCategoryDto[]; expense?: ExpenseCategoryDto[] }>('/categories/tree');
-        if (Array.isArray(data?.income)) {
-          setIncomeCategories(data.income);
+        const [incomeData, expenseData] = await Promise.all([
+          apiRequest<CategoryDto[]>('/categories?type=INCOME').catch(() => []),
+          apiRequest<CategoryDto[]>('/categories?type=EXPENSE').catch(() => []),
+        ]);
+
+        if (Array.isArray(incomeData)) {
+          setIncomeCategories(
+            incomeData.map(c => ({
+              id: c.id,
+              name: c.name,
+              color: c.color,
+              icon: c.icon,
+            })),
+          );
         }
-        if (Array.isArray(data?.expense)) {
-          setExpenseCategories(data.expense);
+
+        if (Array.isArray(expenseData)) {
+          // Если категории плоские (без иерархии вложенности)
+          setExpenseCategories(
+            expenseData.map(c => ({
+              id: c.id,
+              name: c.name,
+              color: c.color,
+              icon: c.icon,
+              children: [],
+            })),
+          );
         }
       } catch (e) {
         console.warn('Load categories error', e);

@@ -1,7 +1,10 @@
 package com.flowly.api.model.response;
 
+import com.flowly.api.model.dto.TagDto;
+
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.util.List;
 
 public record OperationResponse(
         Integer id,
@@ -21,7 +24,10 @@ public record OperationResponse(
         String note,
         String recipient,
         String place,
+        List<TagDto> tags,
+        String merchant,
+        String photoUrl,
         Boolean isPinned,
-        LocalDateTime dateTime
+        OffsetDateTime dateTime
 ) {
 }

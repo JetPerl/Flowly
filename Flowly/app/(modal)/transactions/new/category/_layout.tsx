@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 export default function CategoryLayout() {
   return (
     <Stack
+      id="category-stack"
       screenOptions={{
         presentation: 'modal',
         headerLargeTitle: false,
@@ -82,7 +83,6 @@ export default function CategoryLayout() {
           
         ),
       }}
-      initialRouteName="index"
     />
   );
 }

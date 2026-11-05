@@ -1,6 +1,7 @@
 package com.flowly.api.controller;
 
 import com.flowly.api.config.openapi.annotations.BaseErrorResponses;
+import com.flowly.api.model.request.OperationCreateRequest;
 import com.flowly.api.model.request.OperationPatchRequest;
 import com.flowly.api.model.response.OperationPageResponse;
 import com.flowly.api.model.response.OperationResponse;
@@ -14,9 +15,11 @@ import jakarta.validation.constraints.Min;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -73,6 +76,33 @@ public interface OperationController {
             @Parameter(description = "ID операции", example = "371")
             @PathVariable @Min(value = 1, message = "ID операции должен быть не менее 1") Integer id,
             @Valid @RequestBody OperationPatchRequest request,
+            @AuthenticationPrincipal UserDetails userDetails
+    );
+
+    @Operation(summary = "Создание новой операции", description = "Создает новую финансовую операцию (доход, расход или перевод)")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "201", ref = "#/components/responses/OperationDetailsSuccess"),
+            @ApiResponse(responseCode = "400", ref = "#/components/responses/BadRequest"),
+            @ApiResponse(responseCode = "403", ref = "#/components/responses/Forbidden"),
+            @ApiResponse(responseCode = "404", ref = "#/components/responses/NotFound")
+    })
+    @BaseErrorResponses
+    @PostMapping
+    ResponseEntity<OperationResponse> createOperation(
+            @Valid @RequestBody OperationCreateRequest request,
+            @AuthenticationPrincipal UserDetails userDetails
+    );
+
+    @Operation(summary = "Удаление операции", description = "Удаляет финансовую операцию по ID и возвращает баланс счета")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Операция успешно удалена"),
+            @ApiResponse(responseCode = "403", ref = "#/components/responses/Forbidden"),
+            @ApiResponse(responseCode = "404", ref = "#/components/responses/NotFound")
+    })
+    @BaseErrorResponses
+    @DeleteMapping("/{id}")
+    ResponseEntity<Void> deleteOperation(
+            @PathVariable @Min(value = 1, message = "ID операции должен быть не менее 1") Integer id,
             @AuthenticationPrincipal UserDetails userDetails
     );
 }

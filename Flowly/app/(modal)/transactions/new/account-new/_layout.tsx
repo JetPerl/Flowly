@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 export default function AccountNewLayout() {
   return (
     <Stack
+      id="account-new-stack"
       screenOptions={{
         presentation: 'modal',
         headerLargeTitle: false,
@@ -33,7 +34,6 @@ export default function AccountNewLayout() {
           </Pressable>
         ),
       }}
-      initialRouteName="index"
     />
   );
 }
