@@ -24,7 +24,7 @@ export default function SecurityCodeScreen() {
   const router = useRouter();
   const [code, setCode] = useState('');
   const [saving, setSaving] = useState(false);
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<any>(null);
   const { enable } = useSecurityCode();
 
   useEffect(() => {

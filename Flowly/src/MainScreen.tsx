@@ -834,21 +834,28 @@ const mapApiOperationToHistoryItem = useCallback(
             }
           }
 
+          // 1. Сначала мапим ВСЕ элементы секции без фильтрации по счёту
           const itemsRaw: HistoryItem[] = Array.isArray(section?.items)
-            ? section.items
-              .map(mapApiOperationToHistoryItem)
-              .filter(item => {
-                if (accountFilter === null) return true;
-                return item.accountId === accountFilter || item.relatedAccountId === accountFilter;
-              })
+            ? section.items.map(mapApiOperationToHistoryItem)
             : [];
-          const items = mergeTransferItems(itemsRaw);
+          
+          // 2. Объединяем их в переводы ПОЛНОСТЬЮ по всей базе
+          const mergedItems = mergeTransferItems(itemsRaw);
+
+          // 3. И только теперь применяем фильтр по счёту (проверяем оба конца перевода!)
+          const filteredItems = mergedItems.filter(item => {
+            if (accountFilter === null) return true;
+            return (
+              item.accountId === accountFilter || 
+              item.relatedAccountId === accountFilter
+            );
+          });
 
           return {
             id,
             dateLabel: label,
             totalLabel: '',
-            items,
+            items: filteredItems,
           };
         })
         .filter(section => section.items.length > 0);
@@ -860,9 +867,9 @@ const mapApiOperationToHistoryItem = useCallback(
 
 const loadHistory = useCallback(async () => {
     try {
-      const endpoint = activeAccountId
-        ? `/operations?accountId=${activeAccountId}&limit=50`
-        : '/operations?limit=50';
+      // Убираем условие activeAccountId из запроса к бэкенду, 
+      // чтобы всегда получать полную историю и видеть склеенные переводы
+      const endpoint = '/operations?limit=100';
 
       const data = await apiRequest<OperationPageResponse>(endpoint);
       const items = Array.isArray(data?.items) ? data.items : [];
@@ -2455,7 +2462,7 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
   heroImage: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     height: HERO_HEIGHT,
     width: '100%',
   },

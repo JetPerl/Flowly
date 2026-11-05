@@ -1,11 +1,11 @@
 package com.flowly.api.model.dto;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 public record UserDto(
         Long id,
-        String email,
+        String login,
         String baseCurrency,
-        LocalDateTime createdAt
+        OffsetDateTime createdAt
 ) {
 }

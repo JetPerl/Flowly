@@ -25,4 +25,6 @@ public interface OperationRepository extends JpaRepository<Operation, Integer> {
             @Param("id") Integer id,
             @Param("accountIds") List<Integer> accountIds
     );
+
+    List<Operation> findAllByTransferId(Integer transferId);
 }

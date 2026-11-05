@@ -1,17 +1,17 @@
 package com.flowly.api.model.response;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 public record ApiResponse(
         boolean success,
         String message,
-        LocalDateTime timestamp
+        OffsetDateTime timestamp
 ) {
     public static ApiResponse ok(String message) {
-        return new ApiResponse(true, message, LocalDateTime.now());
+        return new ApiResponse(true, message, OffsetDateTime.now());
     }
 
     public static ApiResponse error(String message) {
-        return new ApiResponse(false, message, LocalDateTime.now());
+        return new ApiResponse(false, message, OffsetDateTime.now());
     }
 }

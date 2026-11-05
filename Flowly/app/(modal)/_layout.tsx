@@ -4,10 +4,15 @@ import { Stack } from 'expo-router';
 export default function ModalLayout() {
   return (
     <Stack
+      id="modal-stack"
       screenOptions={{
-        presentation: 'modal',
         headerShown: false,
+        presentation: 'modal',
       }}
-    />
+    >
+      <Stack.Screen name="transactions/new" />
+      <Stack.Screen name="subscription" />
+      <Stack.Screen name="security-code" />
+    </Stack>
   );
 }

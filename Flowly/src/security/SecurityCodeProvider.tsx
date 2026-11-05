@@ -417,7 +417,8 @@ const LockOverlay = ({
 }) => {
   const [code, setCode] = useState('');
   const [error, setError] = useState(false);
-  const inputRef = useRef<TextInput>(null);
+  // Используем any, чтобы избежать конфликтов типизации TextInputInstance в новой версии RN
+  const inputRef = useRef<any>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => inputRef.current?.focus(), 200);
@@ -489,8 +490,8 @@ const LockOverlay = ({
         >
           <View style={styles.lockCenter}>
             <View style={styles.headerRow}>
-             <View style={styles.appIcon}>
-                <AppIconSvg width={36} height={36}/>
+              <View style={styles.appIcon}>
+                <AppIconSvg width={36} height={36} />
               </View>
               <View>
                 <Text style={styles.greeting}>Добрый день, Илья!</Text>

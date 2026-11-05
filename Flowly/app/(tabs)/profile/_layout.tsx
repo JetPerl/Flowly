@@ -6,6 +6,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 export default function ProfileTabLayout() {
   return (
     <Stack
+      id="profile-stack" // <--- Добавьте этот обязательный идентификатор
       screenOptions={{
         headerTransparent: true,
       }}
@@ -48,7 +49,7 @@ export default function ProfileTabLayout() {
       <Stack.Screen
         name="security"
         options={{
-          title: 'Безопасность'
+          title: 'Безопасность',
         }}
       />
     </Stack>

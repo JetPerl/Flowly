@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 export default function TagsLayout() {
   return (
     <Stack
+      id="tags-stack"
       screenOptions={{
         presentation: 'modal',
         headerLargeTitle: false,
@@ -80,7 +81,6 @@ export default function TagsLayout() {
           
         ),
       }}
-      initialRouteName="tegs"
     />
   );
 }

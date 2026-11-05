@@ -13,15 +13,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 // @ts-ignore
 import MapView, { Marker, PROVIDER_GOOGLE, PROVIDER_DEFAULT, Region } from 'react-native-maps';
 import CrossIcon from '../../../../assets/icons/menu/cross.svg';
-import CheckIcon from '../../../../assets/icons/menu/check.svg';
-import { GlassButton } from '../../../../src/components/LiquidHeaderActions';
 import {
   getCurrentLocation,
   requestLocationPermission,
   type ReverseGeocodeResult,
   type UserLocationEvent,
 } from '../../../../src/location/locationService';
-import { useTransactionDraft } from './_TransactionDraftContext';
+import { useTransactionDraft } from '../../../../src/context/_TransactionDraftContext';
 
 type LocationSearchResult = {
   title: string;
@@ -218,27 +216,6 @@ export default function TransactionLocationScreen() {
           title: 'Место',
         }}
       />
-
-      <View style={styles.header}>
-        <GlassButton
-          size={44}
-          onPress={() => router.back()}
-          icon={<CrossIcon width={20} height={20} stroke={COLORS.textMain} />}
-        />
-        <Text style={styles.headerTitle}>Место</Text>
-        <GlassButton
-          size={44}
-          onPress={handleSave}
-          disabled={!selectedLocation}
-          icon={
-            <CheckIcon
-              width={18}
-              height={18}
-              stroke={selectedLocation ? COLORS.textMain : COLORS.textSecondary}
-            />
-          }
-        />
-      </View>
 
       <View style={styles.searchWrapper}>
         <Text style={styles.searchIcon}>🔍</Text>

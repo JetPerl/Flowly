@@ -10,6 +10,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
@@ -22,7 +24,9 @@ import lombok.experimental.FieldDefaults;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "operations")
@@ -58,10 +62,13 @@ public class Operation {
     String currency;
 
     @Column(name = "date_time", nullable = false)
-    LocalDateTime date;
+    OffsetDateTime date;
 
     @Column(name = "note")
     String comment;
+
+    @Column(name = "merchant")
+    String merchant;
 
     @Column(name = "recipient")
     String recipient;
@@ -69,10 +76,28 @@ public class Operation {
     @Column(name = "place")
     String place;
 
+    @Column(name = "photo_url")
+    String photoUrl;
+
     @Column(name = "is_pinned")
     Boolean isPinned;
 
+    @Column(name = "related_account_id")
+    Integer relatedAccountId;
+
+    @Column(name = "transfer_id")
+    Integer transferId;
+
     @Column(name = "updated_at")
     @UpdateTimestamp
-    LocalDateTime updatedAt;
+    OffsetDateTime updatedAt;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "operation_tags",
+            joinColumns = @JoinColumn(name = "operation_id"),
+            inverseJoinColumns = @JoinColumn(name = "tag_id")
+    )
+    @Builder.Default
+    List<Tag> tags = new ArrayList<>();
 }

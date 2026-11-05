@@ -10,7 +10,7 @@ const TOKEN_KEY = 'flowly:jwt_token';
 
 // Токен разработчика, полученный при регистрации
 const HARDCODED_DEV_TOKEN =
-  'eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJpbHlhYnVybmFzQGdtYWlsLmNvbSIsImlhdCI6MTc5MzYzNTA5OSwiZXhwIjoxNzkzNzIxNDk5fQ.YRejJziMmsP52BhozgLabn0Uu_yYgbgY20NBKPQcPo-loTI-8UHqew-1_suB_zgF';
+  'eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJpbHlhYnVybmFzQGdtYWlsLmNvbSIsImlhdCI6MTc5Mzc5OTc1OCwiZXhwIjoxNzkzODg2MTU4fQ.yt-yEMTWxmfazv5cxgPaNIKCThx8wOeQx2Pf4hVG56jHnM0UeEsAFtvGwAJ5_tPj';
 
 export async function setAuthToken(token: string): Promise<void> {
   await AsyncStorage.setItem(TOKEN_KEY, token);
@@ -92,4 +92,36 @@ export function groupOperationsIntoSections(items: any[]): { id: string; items: 
       id: dateKey,
       items: groupItems,
     }));
+}
+
+export async function uploadImageFile(fileUri: string): Promise<{ url: string }> {
+  const token = await getAuthToken();
+  const formData = new FormData();
+
+  const filename = fileUri.split('/').pop() || 'photo.jpg';
+  const match = /\.(\w+)$/.exec(filename);
+  const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+  formData.append('file', {
+    uri: fileUri,
+    name: filename,
+    type,
+  } as any);
+
+  const cleanEndpoint = '/api/v1/files/upload';
+  const response = await fetch(`${API_BASE_URL}${cleanEndpoint}`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      // 'Content-Type' указывать НЕ нужно — fetch сам выставит boundary для multipart/form-data
+    },
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => '');
+    throw new Error(`Ошибка загрузки фото [${response.status}]: ${errorText}`);
+  }
+
+  return response.json();
 }

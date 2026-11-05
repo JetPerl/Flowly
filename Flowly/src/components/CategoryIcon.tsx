@@ -31,7 +31,14 @@ const FILL_ONLY_ICONS = new Set<CategoryIconName>([
   'tickets',
   'unconsidered-spending',
 ]);
-const ACCOUNT_ICONS = new Set<CategoryIconName>(['wallet', 'card', 'crypto', 'target']);
+
+// 1. Допустимые иконки счетов
+const ACCOUNT_ICONS = new Set<string>(['wallet', 'card', 'crypto', 'target']);
+
+// 2. Синонимы иконок из базы данных к именам в приложении
+const ICON_NAME_MAP: Record<string, string> = {
+  'credit-card': 'card',
+};
 
 const normalizeColor = (value?: string | null): string | undefined => {
   if (typeof value !== 'string') return undefined;
@@ -47,10 +54,13 @@ const CategoryIcon: React.FC<Props> = ({
   fallbackColor = '#ffffffff',
   style,
 }) => {
-  const normalizedName = sanitizeCategoryIconName(name);
+  // Подменяем имя, если для него есть синоним (например, credit-card -> card)
+  const mappedName = name && ICON_NAME_MAP[name] ? ICON_NAME_MAP[name] : name;
+  const normalizedName = sanitizeCategoryIconName(mappedName);
+
   const tintColor = normalizeColor(color);
   const isFillOnlyIcon = normalizedName ? FILL_ONLY_ICONS.has(normalizedName as CategoryIconName) : false;
-  const isAccountIcon = normalizedName ? ACCOUNT_ICONS.has(normalizedName as CategoryIconName) : false;
+  const isAccountIcon = normalizedName ? ACCOUNT_ICONS.has(normalizedName) : false;
   const shouldApplyFill = isFillOnlyIcon;
   const IconComponent = normalizedName ? resolveCategoryIcon(normalizedName) : undefined;
   const iconModule = normalizedName
