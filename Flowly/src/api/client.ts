@@ -2,15 +2,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 // Для симулятора iOS на Mac используется localhost, для физического iPhone — IP Mac в Wi-Fi сети
-export const API_BASE_URL = Platform.OS === 'ios'
-  ? 'http://localhost:8080'
-  : 'http://192.168.0.135:8080';
+export const API_BASE_URL = 'http://192.168.1.8:8080';
 
 const TOKEN_KEY = 'flowly:jwt_token';
 
 // Токен разработчика, полученный при регистрации
 const HARDCODED_DEV_TOKEN =
-  'eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJpbHlhYnVybmFzQGdtYWlsLmNvbSIsImlhdCI6MTc5Mzc5OTc1OCwiZXhwIjoxNzkzODg2MTU4fQ.yt-yEMTWxmfazv5cxgPaNIKCThx8wOeQx2Pf4hVG56jHnM0UeEsAFtvGwAJ5_tPj';
+  'eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJpbHlhYnVybmFzQGdtYWlsLmNvbSIsImlhdCI6MTc5NDE1NTUzMCwiZXhwIjoxNzk0MjQxOTMwfQ.IF623AQM-p4Yn22PTPAQ66E4RSolzzNm9XmuXTstMuOoIWNVbvocfbyWrhMVVAEO';
 
 export async function setAuthToken(token: string): Promise<void> {
   await AsyncStorage.setItem(TOKEN_KEY, token);

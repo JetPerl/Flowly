@@ -13,6 +13,7 @@ import {
   Image,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import SegmentedControl from '@react-native-segmented-control/segmented-control';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
@@ -35,6 +36,10 @@ const COLORS = {
   textSecondary: '#757575',
   primary: '#2BAF8C',
 };
+
+const OPERATION_TYPES: ('expense' | 'income' | 'transfer')[] = ['expense', 'income', 'transfer'];
+const OPERATION_LABELS = ['Расход', 'Доход', 'Перевод'];
+const NativeSegmentedControl = SegmentedControl as any;
 
 export default function NewTransactionScreen() {
   const router = useRouter();
@@ -68,8 +73,8 @@ export default function NewTransactionScreen() {
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [isPinned, setIsPinned] = useState(false);
   const [ratesMap, setRatesMap] = useState<Record<string, number> | null>(null);
-const scrollRef = useRef<any>(null);
-const noteInputRef = useRef<any>(null);
+  const scrollRef = useRef<any>(null);
+  const noteInputRef = useRef<any>(null);
 
   const toggleDatePicker = useCallback(() => {
     setDatePickerVisible(prev => !prev);
@@ -105,6 +110,11 @@ const noteInputRef = useRef<any>(null);
     () => (mainCurrency || DEFAULT_MAIN_CURRENCY).toUpperCase(),
     [mainCurrency],
   );
+
+  const selectedSegmentIndex = useMemo(() => {
+    const idx = OPERATION_TYPES.indexOf(draft.type as any);
+    return idx !== -1 ? idx : 0;
+  }, [draft.type]);
 
   useEffect(() => {
     let cancelled = false;
@@ -915,7 +925,7 @@ const noteInputRef = useRef<any>(null);
     <View style={styles.container}>
       <Stack.Screen
         options={{
-          title: 'Новая операция',
+          title: 'Операция',
           headerShown: true,
           headerTransparent: true,
           headerShadowVisible: false,
@@ -951,6 +961,21 @@ const noteInputRef = useRef<any>(null);
         contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.amountInputWrapper}>
+          <NativeSegmentedControl
+            values={OPERATION_LABELS}
+            selectedIndex={selectedSegmentIndex}
+            onChange={(event: any) => {
+              const nextType = OPERATION_TYPES[event.nativeEvent.selectedSegmentIndex];
+              if (nextType && nextType !== draft.type) {
+                setType(nextType);
+                if (nextType !== 'transfer') {
+                  setCategory(undefined);
+                }
+              }
+            }}
+            style={styles.segmentedControl}
+          />
+
           <View style={styles.amountInputRow}>
             <TextInput
               style={styles.amountInput}
@@ -1204,10 +1229,14 @@ const styles = StyleSheet.create({
   },
   amountInputWrapper: {
     marginHorizontal: 20,
-    marginTop: 12,
     marginBottom: 8,
     alignItems: 'center',
     paddingVertical: 16,
+  },
+  segmentedControl: {
+    width: '100%',
+    height: 36,
+    marginBottom: 20,
   },
   amountInputRow: {
     flexDirection: 'row',
