@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                   http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.8.xsd">
+
+    <include file="2026/11/11/2026-11-11_create_users_table.sql" relativeToChangelogFile="true"/>
+    <include file="2026/11/11/2026-11-11_create_tags_table.sql" relativeToChangelogFile="true"/>
+    <include file="2026/11/11/2026-11-11_create_exchange_rates_table.sql" relativeToChangelogFile="true"/>
+    <include file="2026/11/11/2026-11-11_create_categories_table.sql" relativeToChangelogFile="true"/>
+    <include file="2026/11/11/2026-11-11_create_accounts_table.sql" relativeToChangelogFile="true"/>
+    <include file="2026/11/11/2026-11-11_create_merchants_table.sql" relativeToChangelogFile="true"/>
+    <include file="2026/11/11/2026-11-11_create_crypto_assets_table.sql" relativeToChangelogFile="true"/>
+    <include file="2026/11/11/2026-11-11_create_operations_table.sql" relativeToChangelogFile="true"/>
+    <include file="2026/11/11/2026-11-11_create_operation_tags_table.sql" relativeToChangelogFile="true"/>
+    <include file="2026/11/11/2026-11-11_create_budgets_table.sql" relativeToChangelogFile="true"/>
+    <include file="2026/11/11/2026-11-11_create_goals_table.sql" relativeToChangelogFile="true"/>
+
+    <include file="2026/11/11/2026-11-11_create_user_sessions_table.sql" relativeToChangelogFile="true"/>
+
+    <include file="2026/11/11/2026-11-11_create_logs_table.sql" relativeToChangelogFile="true"/>
+
+    <include file="2026/11/11/2026-11-11_create_indexes.sql" relativeToChangelogFile="true"/>
+
+    <include file="2026/11/11/2026-11-11_insert_initial_categories.sql" relativeToChangelogFile="true"/>
+    <include file="2026/11/11/2026-11-11_insert_initial_tags.sql" relativeToChangelogFile="true"/>
+    <include file="2026/11/11/2026-11-11_insert_initial_exchange_rates.sql" relativeToChangelogFile="true"/>
+
+</databaseChangeLog>
