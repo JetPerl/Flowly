@@ -20,6 +20,11 @@ spring:
         jdbc:
           lob:
             non_contextual_creation: true
+
+  liquibase:
+    enabled: true
+    change-log: db/migration/db.changelog-master.xml
+
   flyway:
     enabled: false
 
