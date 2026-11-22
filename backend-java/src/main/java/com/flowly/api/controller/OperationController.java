@@ -13,8 +13,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -43,8 +41,7 @@ public interface OperationController {
             @Parameter(description = "Количество возвращаемых элементов (по умолчанию 20)", example = "20")
             @RequestParam(required = false) @Min(value = 1, message = "Количество элементов (limit) должно быть не менее 1") Integer limit,
             @Parameter(description = "Курсор для получения следующей страницы", example = "ZXlKcGJhdDI...")
-            @RequestParam(required = false) String cursor,
-            @AuthenticationPrincipal UserDetails userDetails
+            @RequestParam(required = false) String cursor
     );
 
     @Operation(summary = "Получение операции по ID", description = "Возвращает детальную информацию по конкретной финансовой операции текущего пользователя")
@@ -58,8 +55,7 @@ public interface OperationController {
     @GetMapping("/{id}")
     ResponseEntity<OperationResponse> getOperationById(
             @Parameter(description = "ID операции", example = "371")
-            @PathVariable @Min(value = 1, message = "ID операции должен быть не менее 1") Integer id,
-            @AuthenticationPrincipal UserDetails userDetails
+            @PathVariable @Min(value = 1, message = "ID операции должен быть не менее 1") Integer id
     );
 
     @Operation(summary = "Частичное обновление операции", description = "Позволяет изменить отдельные поля финансовой операции (категорию, сумму, счет, дату, заметку и т.д.)")
@@ -75,8 +71,7 @@ public interface OperationController {
     ResponseEntity<OperationResponse> patchOperation(
             @Parameter(description = "ID операции", example = "371")
             @PathVariable @Min(value = 1, message = "ID операции должен быть не менее 1") Integer id,
-            @Valid @RequestBody OperationPatchRequest request,
-            @AuthenticationPrincipal UserDetails userDetails
+            @Valid @RequestBody OperationPatchRequest request
     );
 
     @Operation(summary = "Создание новой операции", description = "Создает новую финансовую операцию (доход, расход или перевод)")
@@ -89,8 +84,7 @@ public interface OperationController {
     @BaseErrorResponses
     @PostMapping
     ResponseEntity<OperationResponse> createOperation(
-            @Valid @RequestBody OperationCreateRequest request,
-            @AuthenticationPrincipal UserDetails userDetails
+            @Valid @RequestBody OperationCreateRequest request
     );
 
     @Operation(summary = "Удаление операции", description = "Удаляет финансовую операцию по ID и возвращает баланс счета")
@@ -102,7 +96,6 @@ public interface OperationController {
     @BaseErrorResponses
     @DeleteMapping("/{id}")
     ResponseEntity<Void> deleteOperation(
-            @PathVariable @Min(value = 1, message = "ID операции должен быть не менее 1") Integer id,
-            @AuthenticationPrincipal UserDetails userDetails
+            @PathVariable @Min(value = 1, message = "ID операции должен быть не менее 1") Integer id
     );
 }

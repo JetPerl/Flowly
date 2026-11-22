@@ -36,13 +36,13 @@ public class User {
     @Column(name = "id")
     Integer id;
 
+    @Column(name = "keycloak_id", unique = true, length = 64)
+    String keycloakId;
+
     @Column(name = "login", nullable = false, unique = true)
     String email;
 
-    @Column(name = "password_hash", nullable = false)
-    String passwordHash;
-
-    @Column(name = "base_currency", length = 3)
+    @Column(name = "base_currency", length = 10)
     String baseCurrency;
 
     @CreationTimestamp

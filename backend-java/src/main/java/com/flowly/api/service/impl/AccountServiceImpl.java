@@ -2,11 +2,10 @@ package com.flowly.api.service.impl;
 
 import com.flowly.api.mapper.AccountMapper;
 import com.flowly.api.model.entity.Account;
-import com.flowly.api.model.entity.User;
 import com.flowly.api.model.response.AccountResponse;
 import com.flowly.api.repository.AccountRepository;
-import com.flowly.api.repository.UserRepository;
 import com.flowly.api.service.AccountService;
+import com.flowly.api.utils.SecurityUtils;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -21,19 +20,13 @@ import java.util.List;
 public class AccountServiceImpl implements AccountService {
 
     AccountRepository accountRepository;
-    UserRepository userRepository;
     AccountMapper accountMapper;
 
     @Override
     @Transactional(readOnly = true)
-    public List<AccountResponse> getAccounts(String email) {
-        User user = userRepository.findByEmail(email).orElse(null);
-
-        if (user == null) {
-            return List.of();
-        }
-
-        List<Account> accounts = accountRepository.findByUserId(user.getId());
+    public List<AccountResponse> getAccounts() {
+        Integer userId = SecurityUtils.getCurrentUserId();
+        List<Account> accounts = accountRepository.findByUserId(userId);
         return accountMapper.toAccountResponseList(accounts);
     }
 }

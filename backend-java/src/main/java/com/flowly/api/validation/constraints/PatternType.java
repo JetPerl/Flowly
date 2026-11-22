@@ -8,7 +8,8 @@ import java.util.regex.Pattern;
 public enum PatternType {
     ENTITY_NAME("^(?! )(?!.*  )(?!.* $)[A-Za-zА-Яа-яЁё0-9 .,/()№:-]+$"),
     COMMENT("^(?! )(?!.*  )(?!.* $)[A-Za-zА-Яа-яЁё0-9 .,/()№:'@-]+$"),
-    URL("^https?:\\/\\/(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\\.)+[A-Za-z]{2,}(?::[0-9]{2,5})?(?:\\/[^\\s]*)?$");
+    URL("^https?:\\/\\/(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\\.)+[A-Za-z]{2,}(?::[0-9]{2,5})?(?:\\/[^\\s]*)?$"),
+    PASSWORD("^(?=.*[A-Za-z])(?=.*\\d)\\S+$");
 
     private final Pattern pattern;
 

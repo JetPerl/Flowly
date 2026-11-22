@@ -11,7 +11,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -27,39 +26,33 @@ public class OperationControllerImpl implements OperationController {
     public ResponseEntity<OperationPageResponse> getOperations(
             Integer accountId,
             Integer limit,
-            String cursor,
-            UserDetails userDetails
+            String cursor
     ) {
-        String email = userDetails.getUsername();
-        OperationPageResponse response = operationService.getOperationsWithCursor(email, accountId, limit, cursor);
+        OperationPageResponse response = operationService.getOperationsWithCursor(accountId, limit, cursor);
         return ResponseEntity.ok(response);
     }
 
     @Override
-    public ResponseEntity<OperationResponse> getOperationById(Integer id, UserDetails userDetails) {
-        String email = userDetails.getUsername();
-        OperationResponse response = operationService.getOperationById(email, id);
+    public ResponseEntity<OperationResponse> getOperationById(Integer id) {
+        OperationResponse response = operationService.getOperationById(id);
         return ResponseEntity.ok(response);
     }
 
     @Override
-    public ResponseEntity<OperationResponse> patchOperation(Integer id, OperationPatchRequest request, UserDetails userDetails) {
-        String email = userDetails.getUsername();
-        OperationResponse response = operationService.patchOperation(email, id, request);
+    public ResponseEntity<OperationResponse> patchOperation(Integer id, OperationPatchRequest request) {
+        OperationResponse response = operationService.patchOperation(id, request);
         return ResponseEntity.ok(response);
     }
 
     @Override
-    public ResponseEntity<OperationResponse> createOperation(OperationCreateRequest request, UserDetails userDetails) {
-        String email = userDetails.getUsername();
-        OperationResponse response = operationService.createOperation(email, request);
+    public ResponseEntity<OperationResponse> createOperation(OperationCreateRequest request) {
+        OperationResponse response = operationService.createOperation(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @Override
-    public ResponseEntity<Void> deleteOperation(Integer id, UserDetails userDetails) {
-        String email = userDetails.getUsername();
-        operationService.deleteOperation(email, id);
+    public ResponseEntity<Void> deleteOperation(Integer id) {
+        operationService.deleteOperation(id);
         return ResponseEntity.noContent().build();
     }
 }

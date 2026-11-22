@@ -4,7 +4,7 @@ public final class ApiExamples {
 
     public static final String STANDARD_BAD_REQUEST = """
             {
-              "code": 400,
+              "status": 400,
               "type": "Bad Request",
               "message": "Некорректные данные в запросе"
             }
@@ -12,15 +12,23 @@ public final class ApiExamples {
 
     public static final String STANDARD_UNAUTHORIZED = """
             {
-              "code": 401,
+              "status": 401,
               "type": "Unauthorized",
               "message": "Отсутствует или некорректный токен авторизации"
             }
             """;
 
+    public static final String INVALID_CREDENTIALS_UNAUTHORIZED = """
+            {
+              "status": 401,
+              "type": "Unauthorized",
+              "message": "Неверный адрес электронной почты или пароль"
+            }
+            """;
+
     public static final String STANDARD_FORBIDDEN = """
             {
-              "code": 403,
+              "status": 403,
               "type": "Forbidden",
               "message": "У вас нет прав для выполнения данного действия"
             }
@@ -28,7 +36,7 @@ public final class ApiExamples {
 
     public static final String RESOURCE_NOT_FOUND = """
             {
-              "code": 404,
+              "status": 404,
               "type": "Not Found",
               "message": "Запрашиваемый ресурс не найден"
             }
@@ -36,15 +44,15 @@ public final class ApiExamples {
 
     public static final String CONFLICT_RESPONSE = """
             {
-              "code": 409,
+              "status": 409,
               "type": "Conflict",
-              "message": "Ресурс с такими данными уже существует"
+              "message": "Пользователь с таким адресом уже зарегистрирован"
             }
             """;
 
     public static final String BUSINESS_VALIDATION_ERROR = """
             {
-              "code": 422,
+              "status": 422,
               "type": "Unprocessable Entity",
               "message": "Нарушение бизнес-логики операции"
             }
@@ -52,9 +60,20 @@ public final class ApiExamples {
 
     public static final String STANDARD_INTERNAL_ERROR = """
             {
-              "code": 500,
+              "status": 500,
               "type": "Internal Server Error",
               "message": "Неизвестная ошибка сервера. Попробуйте снова"
+            }
+            """;
+
+    public static final String AUTH_RESPONSE_SUCCESS = """
+            {
+              "token": "eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJFR3dSWTNpN1FFbXBET3cySHNTN2E2azR2cUN6WU1qdU5LMkpR...",
+              "refreshToken": "eyJhbGciOiJIUzUxMiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICI4MzlhNmMzYS1kYTRmLTQ1NTAtOTExNi0zNTdjODRlYz...",
+              "tokenType": "Bearer",
+              "expiresIn": 300,
+              "userId": 13,
+              "email": "test_user@test.com"
             }
             """;
 
@@ -81,33 +100,12 @@ public final class ApiExamples {
                   "place": "",
                   "isPinned": false,
                   "dateTime": "2026-03-02T10:38:00"
-                },
-                {
-                  "id": 369,
-                  "type": "expense",
-                  "amount": 44,
-                  "currency": "BYN",
-                  "category": "Без категории",
-                  "categoryIcon": null,
-                  "categoryColor": null,
-                  "categoryId": null,
-                  "account": "Наличные BYN",
-                  "accountId": 23,
-                  "accountIcon": "wallet",
-                  "accountColor": "#AFE1AF",
-                  "relatedAccountId": null,
-                  "transferId": null,
-                  "note": "",
-                  "recipient": "",
-                  "place": "",
-                  "isPinned": false,
-                  "dateTime": "2026-01-28T17:46:00"
                 }
               ],
               "pageInfo": {
-                "displayed": 2,
-                "hasNext": true,
-                "nextCursor": "MzY5"
+                "displayed": 1,
+                "hasNext": false,
+                "nextCursor": null
               }
             }
             """;
@@ -116,39 +114,21 @@ public final class ApiExamples {
             [
               {
                 "id": 33,
-                "name": "Bybit",
+                "name": "ByBit",
                 "currency": "USD",
                 "balance": 22.95740624,
                 "type": "REGULAR",
                 "color": "#F7931A",
                 "icon": "crypto"
-              },
-              {
-                "id": 29,
-                "name": "Наличные USD",
-                "currency": "USD",
-                "balance": -87.7,
-                "type": "REGULAR",
-                "color": "#9AC1F0",
-                "icon": "wallet"
-              },
-              {
-                "id": 25,
-                "name": "Сбербанк",
-                "currency": "RUB",
-                "balance": 101276.66,
-                "type": "REGULAR",
-                "color": "#2CC36B",
-                "icon": "card"
               }
             ]
             """;
 
     public static final String RATES_LIST_SUCCESS = """
             {
-              "USD": 2.25,
-              "EUR": 2.52,
-              "RUB": 0.015
+              "USD": 3.25,
+              "EUR": 3.55,
+              "RUB": 0.035
             }
             """;
 
@@ -176,5 +156,6 @@ public final class ApiExamples {
             }
             """;
 
-    private ApiExamples() {}
+    private ApiExamples() {
+    }
 }
