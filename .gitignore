@@ -52,3 +52,5 @@ Flowly/android/build/
 # iOS build-time copied assets
 Flowly/ios/assets/
 Flowly/ios/assets/**
+backend-java/target/
+backend-java/target/

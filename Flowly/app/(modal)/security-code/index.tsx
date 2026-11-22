@@ -18,7 +18,7 @@ const PRIMARY = '#2BAF8C';
 const TEXT_MAIN = '#111827';
 const TEXT_SECONDARY = '#6B7280';
 const BORDER = '#E5E7EB';
-const BACKGROUND = require('../../../assets/background.jpg');
+const BACKGROUND = require('../../../assets/backgroundd.gif');
 
 export default function SecurityCodeScreen() {
   const router = useRouter();

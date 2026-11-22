@@ -11,7 +11,6 @@ export default function ModalLayout() {
       }}
     >
       <Stack.Screen name="transactions/new" />
-      <Stack.Screen name="subscription" />
       <Stack.Screen name="security-code" />
     </Stack>
   );

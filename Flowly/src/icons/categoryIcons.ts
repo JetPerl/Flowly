@@ -161,7 +161,7 @@ const icons = {
   'fines': require('../../assets/icons/categories/fines.svg') as IconModule,
   'food': require('../../assets/icons/categories/food.svg') as IconModule,
   'force-majeure': require('../../assets/icons/categories/force-majeure.svg') as IconModule,
-  'fruts-berries': require('../../assets/icons/categories/fruts-berries.svg') as IconModule,
+  'fruts-berries': require('../../assets/icons/categories/fruits-berries.svg') as IconModule,
   'fuel': require('../../assets/icons/categories/fuel.svg') as IconModule,
   'furniture': require('../../assets/icons/categories/furniture.svg') as IconModule,
   'gambling': require('../../assets/icons/categories/gambling.svg') as IconModule,

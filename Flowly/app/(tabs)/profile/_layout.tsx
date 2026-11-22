@@ -6,7 +6,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 export default function ProfileTabLayout() {
   return (
     <Stack
-      id="profile-stack" // <--- Добавьте этот обязательный идентификатор
+      id="profile-stack"
       screenOptions={{
         headerTransparent: true,
       }}
@@ -17,7 +17,7 @@ export default function ProfileTabLayout() {
           title: '',
           headerShown: true,
           headerRight: () => (
-            <Pressable style={{ paddingHorizontal: 8 }} onPress={() => {}}>
+            <Pressable style={{ paddingHorizontal: 8 }} onPress={() => { }}>
               <Ionicons name="ellipsis-horizontal" size={22} color="#111" />
             </Pressable>
           ),
@@ -35,7 +35,7 @@ export default function ProfileTabLayout() {
             onCancelButtonPress: () => DeviceEventEmitter.emit('currency-search', ''),
           },
           headerRight: () => (
-            <Pressable style={{ paddingHorizontal: 8 }} onPress={() => {}}>
+            <Pressable style={{ paddingHorizontal: 8 }} onPress={() => { }}>
               <Ionicons name="ellipsis-horizontal" size={22} color="#111" />
             </Pressable>
           ),

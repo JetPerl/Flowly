@@ -29,7 +29,12 @@ import {
   getCurrencySymbol,
 } from '../../../../src/utils/_utils';
 import { useMainCurrency } from '../../../../src/currency/CurrencyContext';
-import { apiRequest, uploadImageFile } from '../../../../src/api/client';
+import {
+  apiRequest,
+  uploadImageFile,
+  getAccounts,
+  getCategories,
+} from '../../../../src/api';
 
 const COLORS = {
   textMain: '#212121',
@@ -174,29 +179,30 @@ export default function NewTransactionScreen() {
     const preselect = async () => {
       try {
         if (!draft.account) {
-          const res = await fetch(`${API_BASE_URL}/accounts`);
-          if (res.ok) {
-            const data = await res.json();
-            const first = Array.isArray(data) ? data[0] : null;
-            if (first && !cancelled) {
-              setAccount({
-                id: first.id,
-                name: first.name || first.full_name || first.short_name || 'Счёт',
-                currency: first.currency,
-                icon: first.icon || undefined,
-                color: first.color || undefined,
-              });
-            }
+          const accounts = await getAccounts().catch(() => []);
+          const first = Array.isArray(accounts) ? accounts[0] : null;
+          if (first && !cancelled) {
+            setAccount({
+              id: first.id,
+              name: first.name || 'Счёт',
+              currency: first.currency,
+              icon: first.icon || undefined,
+              color: first.color || undefined,
+            });
           }
         }
         if (!draft.category && !isTransfer) {
-          const res = await fetch(`${API_BASE_URL}/categories/tree`);
-          if (res.ok) {
-            const data = await res.json();
-            const firstCategory = pickFirstCategory(data);
-            if (firstCategory && !cancelled) {
-              setCategory(firstCategory);
-            }
+          const catType = draft.type === 'income' ? 'INCOME' : 'EXPENSE';
+          const categories = await getCategories(catType).catch(() => []);
+          const first = Array.isArray(categories) ? categories[0] : null;
+          if (first && !cancelled) {
+            setCategory({
+              id: first.id,
+              name: first.name,
+              icon: first.icon || undefined,
+              color: first.color || undefined,
+              parentName: null,
+            });
           }
         }
       } catch (e) {
@@ -420,8 +426,8 @@ export default function NewTransactionScreen() {
     const buildTagIds = () =>
       Array.isArray(draft.tags) && draft.tags.length > 0
         ? draft.tags
-            .map(t => t.id)
-            .filter(id => typeof id === 'number' && !Number.isNaN(id))
+          .map(t => t.id)
+          .filter(id => typeof id === 'number' && !Number.isNaN(id))
         : [];
 
     const currencyCode = (
@@ -554,13 +560,13 @@ export default function NewTransactionScreen() {
     try {
       const data: any = isEditing
         ? await apiRequest(`/operations/${numericId}`, {
-            method: 'PATCH',
-            body: JSON.stringify(payload),
-          })
+          method: 'PATCH',
+          body: JSON.stringify(payload),
+        })
         : await apiRequest('/operations', {
-            method: 'POST',
-            body: JSON.stringify(payload),
-          });
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
 
       const persistedId = data?.id ?? numericId ?? null;
       DeviceEventEmitter.emit('operation:saved', { id: persistedId, ...data });
@@ -1078,7 +1084,7 @@ export default function NewTransactionScreen() {
           <TouchableOpacity
             style={styles.operationFieldRow}
             activeOpacity={0.7}
-            onPress={() => router.push('/transactions/new/tags/tegs')}
+            onPress={() => router.push('/transactions/new/tags')}
           >
             <Text style={styles.operationFieldLabel}>Метки</Text>
             <View style={[styles.operationFieldValueWithIcon, styles.tagsValueWrapper]}>
