@@ -35,7 +35,7 @@ import {
   sanitizeSecurityCode,
 } from '../securityCode';
 
-const BACKGROUND = require('../../assets/background.jpg');
+const BACKGROUND = require('../../assets/backgroundd.gif');
 
 type SecurityCodeContextValue = {
   enabled: boolean;

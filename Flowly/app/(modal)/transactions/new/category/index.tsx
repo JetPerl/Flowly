@@ -155,7 +155,7 @@ export default function TransactionCategoryScreen() {
         placeholder: 'Поиск',
         placement: 'stacked',
         hideWhenScrolling: false,
-        onChangeText: ({ nativeEvent }) => setSearch(nativeEvent.text),
+        onChangeText: ({ nativeEvent }: any) => setSearch(nativeEvent.text),
         onCancelButtonPress: () => setSearch(''),
       },
     });

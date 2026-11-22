@@ -10,7 +10,7 @@ import React, {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const STORAGE_KEY = 'flowly:avatarUri';
-const DEFAULT_AVATAR = require('../../assets/background.jpg');
+const DEFAULT_AVATAR = require('../../assets/icon.png');
 
 type AvatarContextValue = {
   avatarUri: string | null;

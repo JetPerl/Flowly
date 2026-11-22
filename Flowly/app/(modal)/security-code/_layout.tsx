@@ -13,7 +13,6 @@ export default function SecurityCodeLayout() {
         headerShown: true,
         headerTransparent: true,
         headerShadowVisible: false,
-        // iOS native navigation style
 
         headerLeft: () => (
           <Pressable

@@ -61,7 +61,7 @@ export default function TransactionTagsScreen() {
         placeholder: 'Поиск',
         placement: 'stacked',
         hideWhenScrolling: false,
-        onChangeText: ({ nativeEvent }) => setSearch(nativeEvent.text),
+        onChangeText: ({ nativeEvent }: any) => setSearch(nativeEvent.text),
         onCancelButtonPress: () => setSearch(''),
       },
     });
