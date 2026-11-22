@@ -2,6 +2,8 @@ package com.flowly.api.controller.impl;
 
 import com.flowly.api.controller.AuthController;
 import com.flowly.api.model.request.LoginRequest;
+import com.flowly.api.model.request.LogoutRequest;
+import com.flowly.api.model.request.RefreshTokenRequest;
 import com.flowly.api.model.request.RegisterRequest;
 import com.flowly.api.model.response.AuthResponse;
 import com.flowly.api.service.AuthService;
@@ -32,5 +34,16 @@ public class AuthControllerImpl implements AuthController {
     @Override
     public ResponseEntity<AuthResponse> login(LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
+    }
+
+    @Override
+    public ResponseEntity<AuthResponse> refreshToken(RefreshTokenRequest request) {
+        return ResponseEntity.ok(authService.refreshToken(request));
+    }
+
+    @Override
+    public ResponseEntity<Void> logout(LogoutRequest request) {
+        authService.logout(request);
+        return ResponseEntity.noContent().build();
     }
 }

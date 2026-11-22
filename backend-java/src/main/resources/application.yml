@@ -20,20 +20,30 @@ spring:
         jdbc:
           lob:
             non_contextual_creation: true
-
   liquibase:
     enabled: true
     change-log: db/migration/db.changelog-master.xml
-
   flyway:
     enabled: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8180/realms/flowly
 
 springdoc:
-  api-docs:
-    path: /v3/api-docs
   swagger-ui:
-    path: /swagger-ui.html
+    oauth:
+      client-id: ${keycloak.client-id}
+      client-secret: ${keycloak.client-secret}
 
-jwt:
-  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-  expiration-ms: 86400000 # 24 часа
+keycloak:
+  server-url: http://localhost:8180
+  realm: flowly
+  client-id: flowly-backend
+  client-secret: ${KEYCLOAK_CLIENT_SECRET:uEebnzuo4Ea6FV33blBfvnGFxtudSGMx}
+
+app:
+  rest-client:
+    connect-timeout: 3s
+    read-timeout: 5s

@@ -7,13 +7,13 @@ import com.flowly.api.model.response.OperationResponse;
 
 public interface OperationService {
 
-    OperationPageResponse getOperationsWithCursor(String userEmail, Integer accountId, Integer limit, String cursor);
+    OperationPageResponse getOperationsWithCursor(Integer accountId, Integer limit, String cursor);
 
-    OperationResponse getOperationById(String userEmail, Integer operationId);
+    OperationResponse getOperationById(Integer operationId);
 
-    OperationResponse patchOperation(String userEmail, Integer operationId, OperationPatchRequest request);
+    OperationResponse patchOperation(Integer operationId, OperationPatchRequest request);
 
-    OperationResponse createOperation(String userEmail, OperationCreateRequest request);
+    OperationResponse createOperation(OperationCreateRequest request);
 
-    void deleteOperation(String userEmail, Integer operationId);
+    void deleteOperation(Integer operationId);
 }

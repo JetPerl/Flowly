@@ -1,4 +1,4 @@
-package com.flowly.api.config;
+package com.flowly.api.handler;
 
 import com.flowly.api.exception.BusinessValidationException;
 import com.flowly.api.exception.ConflictException;
@@ -7,10 +7,12 @@ import com.flowly.api.exception.ResourceNotFoundException;
 import com.flowly.api.model.response.HttpErrorResponse;
 import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -35,9 +37,33 @@ public class GlobalExceptionHandler {
         return buildError(HttpStatus.BAD_REQUEST, "Bad Request", message);
     }
 
-    @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<HttpErrorResponse> handleNotFound(ResourceNotFoundException ex) {
-        return buildError(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage());
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<HttpErrorResponse> handleConstraintViolation(ConstraintViolationException ex) {
+        String message = ex.getConstraintViolations().stream()
+                .map(violation -> violation.getMessage())
+                .findFirst()
+                .orElse("Некорректные данные в запросе");
+        return buildError(HttpStatus.BAD_REQUEST, "Bad Request", message);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<HttpErrorResponse> handleHttpMessageNotReadable(HttpMessageNotReadableException ex) {
+        return buildError(HttpStatus.BAD_REQUEST, "Bad Request", "Некорректный формат JSON или недопустимое значение полей");
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<HttpErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {
+        return buildError(HttpStatus.BAD_REQUEST, "Bad Request", ex.getMessage());
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<HttpErrorResponse> handleBadCredentials(BadCredentialsException ex) {
+        return buildError(HttpStatus.UNAUTHORIZED, "Unauthorized", ex.getMessage());
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<HttpErrorResponse> handleUnauthorized() {
+        return buildError(HttpStatus.UNAUTHORIZED, "Unauthorized", "Отсутствует или некорректный токен авторизации");
     }
 
     @ExceptionHandler({AccessDeniedException.class, ForbiddenAccessException.class})
@@ -46,9 +72,9 @@ public class GlobalExceptionHandler {
         return buildError(HttpStatus.FORBIDDEN, "Forbidden", msg);
     }
 
-    @ExceptionHandler(AuthenticationException.class)
-    public ResponseEntity<HttpErrorResponse> handleUnauthorized() {
-        return buildError(HttpStatus.UNAUTHORIZED, "Unauthorized", "Отсутствует или некорректный токен авторизации");
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<HttpErrorResponse> handleNotFound(ResourceNotFoundException ex) {
+        return buildError(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage());
     }
 
     @ExceptionHandler(ConflictException.class)
@@ -67,32 +93,13 @@ public class GlobalExceptionHandler {
         return buildError(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error", "Неизвестная ошибка сервера. Попробуйте снова");
     }
 
-    @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<HttpErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {
-        HttpErrorResponse error = new HttpErrorResponse(
-                HttpStatus.BAD_REQUEST.value(),
-                HttpStatus.BAD_REQUEST.getReasonPhrase(),
-                ex.getMessage()
-        );
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
-    }
-
-    @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<HttpErrorResponse> handleConstraintViolation(ConstraintViolationException ex) {
-        String message = ex.getConstraintViolations().stream()
-                .map(violation -> violation.getMessage())
-                .findFirst()
-                .orElse("Некорректные данные в запросе");
-
-        return buildError(HttpStatus.BAD_REQUEST, "Bad Request", message);
-    }
-
-    @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<HttpErrorResponse> handleHttpMessageNotReadable(HttpMessageNotReadableException ex) {
-        return buildError(HttpStatus.BAD_REQUEST, "Bad Request", "Некорректный формат JSON или недопустимое значение полей");
-    }
-
     private ResponseEntity<HttpErrorResponse> buildError(HttpStatus status, String type, String message) {
         return ResponseEntity.status(status).body(new HttpErrorResponse(status.value(), type, message));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<HttpErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        log.warn("Нарушение целостности данных: {}", ex.getMostSpecificCause().getMessage());
+        return buildError(HttpStatus.CONFLICT, "Conflict", "Операция невозможна из-за наличия связанных данных или нарушения ограничений");
     }
 }

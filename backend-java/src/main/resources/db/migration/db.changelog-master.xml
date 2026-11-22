@@ -26,4 +26,9 @@
     <include file="2026/11/11/2026-11-11_insert_initial_tags.sql" relativeToChangelogFile="true"/>
     <include file="2026/11/11/2026-11-11_insert_initial_exchange_rates.sql" relativeToChangelogFile="true"/>
 
+    <include file="2026/11/20/2026-11-20_add_keycloak_id_column.sql" relativeToChangelogFile="true"/>
+    <include file="2026/11/20/2026-11-20_drop_password_hash_column.sql" relativeToChangelogFile="true"/>
+    <include file="2026/11/20/2026-11-20_configure_user_fk_on_delete.sql" relativeToChangelogFile="true"/>
+    <include file="2026/11/20/2026-11-20_configure_operations_fk_on_delete.sql" relativeToChangelogFile="true"/>
+
 </databaseChangeLog>

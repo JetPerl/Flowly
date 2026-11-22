@@ -7,7 +7,6 @@ import com.flowly.api.model.entity.Account;
 import com.flowly.api.model.entity.Category;
 import com.flowly.api.model.entity.Operation;
 import com.flowly.api.model.entity.Tag;
-import com.flowly.api.model.entity.User;
 import com.flowly.api.model.enums.OperationType;
 import com.flowly.api.model.request.OperationCreateRequest;
 import com.flowly.api.model.request.OperationPatchRequest;
@@ -18,13 +17,12 @@ import com.flowly.api.repository.AccountRepository;
 import com.flowly.api.repository.CategoryRepository;
 import com.flowly.api.repository.OperationRepository;
 import com.flowly.api.repository.TagRepository;
-import com.flowly.api.repository.UserRepository;
 import com.flowly.api.service.OperationService;
+import com.flowly.api.utils.SecurityUtils;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,23 +39,20 @@ import java.util.List;
 public class OperationServiceImpl implements OperationService {
 
     OperationRepository operationRepository;
-    UserRepository userRepository;
     AccountRepository accountRepository;
     OperationMapper operationMapper;
     CategoryRepository categoryRepository;
-    TagRepository tagRepository; // <-- 1. ДОБАВИТЬ РЕПОЗИТОРИЙ ТЕГОВ
+    TagRepository tagRepository;
 
     @Override
     @Transactional(readOnly = true)
-    public OperationPageResponse getOperationsWithCursor(String userEmail, Integer accountId, Integer limit, String cursor) {
-        User user = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден"));
-
-        List<Account> userAccounts = accountRepository.findByUserId(user.getId());
+    public OperationPageResponse getOperationsWithCursor(Integer accountId, Integer limit, String cursor) {
+        Integer userId = SecurityUtils.getCurrentUserId();
+        List<Account> userAccounts = accountRepository.findByUserId(userId);
 
         List<Integer> accountIds;
         if (accountId != null) {
-            Account account = accountRepository.findById(accountId)
+            accountRepository.findById(accountId)
                     .orElseThrow(() -> new ResourceNotFoundException("Счет с ID " + accountId + " не найден"));
 
             boolean belongsToUser = userAccounts.stream().anyMatch(acc -> acc.getId().equals(accountId));
@@ -122,14 +117,13 @@ public class OperationServiceImpl implements OperationService {
 
     @Override
     @Transactional(readOnly = true)
-    public OperationResponse getOperationById(String userEmail, Integer operationId) {
-        User user = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден"));
+    public OperationResponse getOperationById(Integer operationId) {
+        Integer userId = SecurityUtils.getCurrentUserId();
 
         Operation operation = operationRepository.findById(operationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Операция с ID " + operationId + " не найдена"));
 
-        List<Account> userAccounts = accountRepository.findByUserId(user.getId());
+        List<Account> userAccounts = accountRepository.findByUserId(userId);
         List<Integer> userAccountIds = userAccounts.stream().map(Account::getId).toList();
 
         if (!userAccountIds.contains(operation.getAccount().getId())) {
@@ -141,28 +135,25 @@ public class OperationServiceImpl implements OperationService {
 
     @Override
     @Transactional
-    public OperationResponse createOperation(String userEmail, OperationCreateRequest request) {
-        User user = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден"));
+    public OperationResponse createOperation(OperationCreateRequest request) {
+        Integer userId = SecurityUtils.getCurrentUserId();
 
         Integer sourceAccountId = request.accountId() != null ? request.accountId().intValue() : null;
         Account sourceAccount = accountRepository.findById(sourceAccountId)
                 .orElseThrow(() -> new ResourceNotFoundException("Счет с ID " + sourceAccountId + " не найден"));
 
-        if (!sourceAccount.getUser().getId().equals(user.getId())) {
+        if (!sourceAccount.getUser().getId().equals(userId)) {
             throw new ForbiddenAccessException("Счет не принадлежит текущему пользователю");
         }
 
         OffsetDateTime operationDate = request.dateTime() != null ? request.dateTime() : OffsetDateTime.now();
 
-        // Загрузка тегов
         List<Tag> operationTags = new ArrayList<>();
         if (request.tagIds() != null && !request.tagIds().isEmpty()) {
             List<Integer> tagIntIds = request.tagIds().stream().map(Long::intValue).toList();
             operationTags = tagRepository.findAllById(tagIntIds);
         }
 
-        // --- ЛОГИКА ПЕРЕВОДА ---
         if (request.type() == OperationType.TRANSFER) {
             if (request.relatedAccountId() == null) {
                 throw new IllegalArgumentException("Для перевода необходимо указать целевой счет (relatedAccountId)");
@@ -172,7 +163,7 @@ public class OperationServiceImpl implements OperationService {
             Account targetAccount = accountRepository.findById(targetAccountId)
                     .orElseThrow(() -> new ResourceNotFoundException("Целевой счет с ID " + targetAccountId + " не найден"));
 
-            if (!targetAccount.getUser().getId().equals(user.getId())) {
+            if (!targetAccount.getUser().getId().equals(userId)) {
                 throw new ForbiddenAccessException("Целевой счет не принадлежит текущему пользователю");
             }
 
@@ -180,7 +171,6 @@ public class OperationServiceImpl implements OperationService {
 
             BigDecimal incomingAmount = request.targetAmount() != null ? request.targetAmount() : request.amount();
 
-            // 1. Списание со счета-источника
             Operation expensePart = Operation.builder()
                     .account(sourceAccount)
                     .category(null)
@@ -199,7 +189,6 @@ public class OperationServiceImpl implements OperationService {
                     .tags(new ArrayList<>(operationTags))
                     .build();
 
-            // 2. Зачисление на целевой счет (в его валюте и сумме)
             Operation incomePart = Operation.builder()
                     .account(targetAccount)
                     .category(null)
@@ -224,7 +213,6 @@ public class OperationServiceImpl implements OperationService {
             return operationMapper.toOperationResponse(savedExpense);
         }
 
-        // --- ОБЫЧНАЯ ОПЕРАЦИЯ (EXPENSE / INCOME) ---
         Category category = null;
         if (request.categoryId() != null) {
             category = categoryRepository.findById(request.categoryId().intValue())
@@ -255,14 +243,13 @@ public class OperationServiceImpl implements OperationService {
 
     @Override
     @Transactional
-    public OperationResponse patchOperation(String userEmail, Integer operationId, OperationPatchRequest request) {
-        User user = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден"));
+    public OperationResponse patchOperation(Integer operationId, OperationPatchRequest request) {
+        Integer userId = SecurityUtils.getCurrentUserId();
 
         Operation operation = operationRepository.findById(operationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Операция с ID " + operationId + " не найдена"));
 
-        List<Account> userAccounts = accountRepository.findByUserId(user.getId());
+        List<Account> userAccounts = accountRepository.findByUserId(userId);
         List<Integer> userAccountIds = userAccounts.stream().map(Account::getId).toList();
 
         if (!userAccountIds.contains(operation.getAccount().getId())) {
@@ -358,7 +345,6 @@ public class OperationServiceImpl implements OperationService {
             operation.setRelatedAccountId(request.relatedAccountId().intValue());
         }
 
-        // Обновление тегов
         if (request.tagIds() != null) {
             List<Integer> tagIntIds = request.tagIds().stream().map(Long::intValue).toList();
             List<Tag> updatedTags = tagRepository.findAllById(tagIntIds);
@@ -378,17 +364,15 @@ public class OperationServiceImpl implements OperationService {
 
     @Override
     @Transactional
-    public void deleteOperation(String userEmail, Integer operationId) {
-        User user = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new UsernameNotFoundException("Пользователь не найден"));
+    public void deleteOperation(Integer operationId) {
+        Integer userId = SecurityUtils.getCurrentUserId();
 
-        // Если операция уже удалена (идемпотентность HTTP DELETE) — просто выходим
         Operation operation = operationRepository.findById(operationId).orElse(null);
         if (operation == null) {
             return;
         }
 
-        List<Account> userAccounts = accountRepository.findByUserId(user.getId());
+        List<Account> userAccounts = accountRepository.findByUserId(userId);
         List<Integer> userAccountIds = userAccounts.stream().map(Account::getId).toList();
 
         if (!userAccountIds.contains(operation.getAccount().getId())) {

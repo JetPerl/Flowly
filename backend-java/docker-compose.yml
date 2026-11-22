@@ -1,0 +1,19 @@
+name: flowly
+
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    container_name: flowly-keycloak
+    command: start-dev
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin_password
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://host.docker.internal:5432/ilaburnos?currentSchema=keycloak
+      KC_DB_USERNAME: ilaburnos
+      KC_DB_PASSWORD: password
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      - "8180:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

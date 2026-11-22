@@ -8,7 +8,8 @@ import lombok.Getter;
 public enum StringFieldConstraintType {
     ACCOUNT_NAME("Наименование счета", 2, 50, PatternType.ENTITY_NAME),
     CATEGORY_NAME("Наименование категории", 2, 50, PatternType.ENTITY_NAME),
-    COMMENT("Комментарий", 1, 255, PatternType.COMMENT);
+    COMMENT("Комментарий", 1, 255, PatternType.COMMENT),
+    PASSWORD("Пароль", 8, 72, PatternType.PASSWORD);
 
     private final String fieldName;
     private final int minLength;

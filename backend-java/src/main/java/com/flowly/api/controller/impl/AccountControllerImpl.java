@@ -7,7 +7,6 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -20,9 +19,8 @@ public class AccountControllerImpl implements AccountController {
     AccountService accountService;
 
     @Override
-    public ResponseEntity<List<AccountResponse>> getAccounts(UserDetails userDetails) {
-        String email = userDetails.getUsername();
-        List<AccountResponse> accounts = accountService.getAccounts(email);
+    public ResponseEntity<List<AccountResponse>> getAccounts() {
+        List<AccountResponse> accounts = accountService.getAccounts();
         return ResponseEntity.ok(accounts);
     }
 }

@@ -7,5 +7,5 @@ import java.util.List;
 
 public interface CategoryService {
 
-    List<CategoryDto> getCategories(String userEmail, CategoryType type);
+    List<CategoryDto> getCategories(CategoryType type);
 }
