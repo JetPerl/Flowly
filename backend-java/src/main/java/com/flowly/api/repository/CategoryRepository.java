@@ -7,12 +7,30 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface CategoryRepository extends JpaRepository<Category, Integer> {
 
-    @Query("SELECT c FROM Category c WHERE (c.user.id = :userId OR c.user IS NULL) " +
-            "AND (:type IS NULL OR c.type = :type) " +
-            "AND (c.isHidden = false OR c.isHidden IS NULL) " +
-            "ORDER BY c.name ASC")
-    List<Category> findAvailableCategories(@Param("userId") Integer userId, @Param("type") CategoryType type);
+    @Query("""
+            SELECT c FROM Category c
+            LEFT JOIN FETCH c.parent
+            WHERE (c.isSystem = true AND c.user IS NULL)
+               OR (c.user.id = :userId)
+            ORDER BY c.sortOrder ASC NULLS LAST, c.name ASC
+            """)
+    List<Category> findAllAccessibleByUserId(@Param("userId") Integer userId);
+
+    @Query("""
+            SELECT c FROM Category c
+            WHERE c.isSystem = true
+              AND c.user IS NULL
+              AND c.type = :type
+              AND LOWER(c.name) = LOWER('Без категории')
+            ORDER BY c.id ASC
+            """)
+    List<Category> findDefaultUncategorizedByType(@Param("type") CategoryType type);
+
+    Optional<Category> findByIdAndUserId(Integer id, Integer userId);
+
+    List<Category> findAllByParentId(Integer parentId);
 }

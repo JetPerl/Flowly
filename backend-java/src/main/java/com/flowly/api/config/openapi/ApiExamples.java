@@ -156,6 +156,92 @@ public final class ApiExamples {
             }
             """;
 
+    public static final String CATEGORIES_LIST_SUCCESS = """
+            [
+              {
+                "id": 12,
+                "name": "Продукты питания",
+                "type": "EXPENSE",
+                "parentId": null,
+                "icon": "food",
+                "color": null,
+                "sortOrder": 1,
+                "isSystem": true,
+                "isCustomized": false,
+                "isHidden": false,
+                "children": [
+                  {
+                    "id": 28,
+                    "name": "Мясо",
+                    "type": "EXPENSE",
+                    "parentId": 12,
+                    "icon": "meat",
+                    "color": null,
+                    "sortOrder": null,
+                    "isSystem": true,
+                    "isCustomized": false,
+                    "isHidden": false,
+                    "children": []
+                  }
+                ]
+              }
+            ]
+            """;
+
+    public static final String CATEGORY_DETAILS_SUCCESS = """
+            {
+              "id": 12,
+              "name": "Продукты питания",
+              "type": "EXPENSE",
+              "parentId": null,
+              "icon": "food",
+              "color": null,
+              "sortOrder": 1,
+              "isSystem": true,
+              "isCustomized": false,
+              "isHidden": false,
+              "children": []
+            }
+            """;
+
+    public static final String TAGS_LIST_SUCCESS = """
+            [
+              {
+                "id": 1,
+                "name": "Подарок",
+                "color": "#FF69B4",
+                "icon": "gift"
+              },
+              {
+                "id": 2,
+                "name": "Работа",
+                "color": "#4A90E2",
+                "icon": "work"
+              }
+            ]
+            """;
+
+    public static final String TAG_DETAILS_SUCCESS = """
+            {
+              "id": 1,
+              "name": "Подарок",
+              "color": "#FF69B4",
+              "icon": "gift"
+            }
+            """;
+
+    public static final String ACCOUNT_DETAILS_SUCCESS = """
+            {
+              "id": 33,
+              "name": "Основная карта",
+              "currency": "BYN",
+              "balance": 1500.00,
+              "type": "CARD",
+              "color": "#2ECC71",
+              "icon": "card"
+            }
+            """;
+
     private ApiExamples() {
     }
 }

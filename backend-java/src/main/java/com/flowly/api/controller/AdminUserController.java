@@ -1,5 +1,6 @@
 package com.flowly.api.controller;
 
+import com.flowly.api.config.openapi.paths.ApiPaths;
 import com.flowly.api.config.openapi.annotations.BaseErrorResponses;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -11,7 +12,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 
-@RequestMapping("/api/v1/admin/users")
+@RequestMapping(ApiPaths.ADMIN_USERS)
 @Tag(name = "Администрирование пользователей", description = "Операции управления пользователями для администраторов")
 public interface AdminUserController {
 

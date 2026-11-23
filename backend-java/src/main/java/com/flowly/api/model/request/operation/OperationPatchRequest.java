@@ -1,4 +1,4 @@
-package com.flowly.api.model.request;
+package com.flowly.api.model.request.operation;
 
 import com.flowly.api.model.enums.OperationType;
 import io.swagger.v3.oas.annotations.media.Schema;

@@ -1,4 +1,4 @@
-package com.flowly.api.model.response;
+package com.flowly.api.model.response.authorization;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 

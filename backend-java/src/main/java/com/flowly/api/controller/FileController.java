@@ -1,5 +1,6 @@
 package com.flowly.api.controller;
 
+import com.flowly.api.config.openapi.paths.ApiPaths;
 import com.flowly.api.config.openapi.annotations.BaseErrorResponses;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -19,7 +20,7 @@ import java.util.Map;
  * REST-контракт для загрузки файлов (фотографий операций).
  */
 
-@RequestMapping("/api/v1/files")
+@RequestMapping(ApiPaths.FILES)
 @Tag(name = "Файлы", description = "Методы для загрузки изображений и медиафайлов")
 public interface FileController {
 

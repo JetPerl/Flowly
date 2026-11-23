@@ -1,4 +1,4 @@
-package com.flowly.api.model.response;
+package com.flowly.api.model.response.operation;
 
 import com.flowly.api.model.dto.TagDto;
 

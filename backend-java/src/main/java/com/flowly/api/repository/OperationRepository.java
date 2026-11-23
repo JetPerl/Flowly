@@ -1,8 +1,10 @@
 package com.flowly.api.repository;
 
+import com.flowly.api.model.entity.Category;
 import com.flowly.api.model.entity.Operation;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -27,4 +29,8 @@ public interface OperationRepository extends JpaRepository<Operation, Integer> {
     );
 
     List<Operation> findAllByTransferId(Integer transferId);
+
+    @Modifying
+    @Query("UPDATE Operation o SET o.category = :fallbackCategory WHERE o.category.id = :categoryId")
+    void reassignCategory(@Param("categoryId") Integer categoryId, @Param("fallbackCategory") Category fallbackCategory);
 }

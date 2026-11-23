@@ -1,4 +1,6 @@
-package com.flowly.api.model.response;
+package com.flowly.api.model.response.account;
+
+import com.flowly.api.model.enums.AccountType;
 
 import java.math.BigDecimal;
 
@@ -7,7 +9,7 @@ public record AccountResponse(
         String name,
         String currency,
         BigDecimal balance,
-        com.flowly.api.model.enums.AccountType type,
+        AccountType type,
         String color,
         String icon
 ) {

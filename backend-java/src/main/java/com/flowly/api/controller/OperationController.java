@@ -1,10 +1,11 @@
 package com.flowly.api.controller;
 
+import com.flowly.api.config.openapi.paths.ApiPaths;
 import com.flowly.api.config.openapi.annotations.BaseErrorResponses;
-import com.flowly.api.model.request.OperationCreateRequest;
-import com.flowly.api.model.request.OperationPatchRequest;
-import com.flowly.api.model.response.OperationPageResponse;
-import com.flowly.api.model.response.OperationResponse;
+import com.flowly.api.model.request.operation.OperationCreateRequest;
+import com.flowly.api.model.request.operation.OperationPatchRequest;
+import com.flowly.api.model.response.operation.OperationPageResponse;
+import com.flowly.api.model.response.operation.OperationResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -22,7 +23,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
-@RequestMapping("/api/v1/operations")
+@RequestMapping(ApiPaths.OPERATIONS)
 @Tag(name = "Операции", description = "Методы для управления и получения истории финансовых операций с курсорной пагинацией")
 public interface OperationController {
 

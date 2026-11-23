@@ -1,4 +1,4 @@
-package com.flowly.api.model.response;
+package com.flowly.api.model.response.operation;
 
 import java.util.List;
 

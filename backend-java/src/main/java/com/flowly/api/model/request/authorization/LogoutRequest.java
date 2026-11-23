@@ -1,4 +1,4 @@
-package com.flowly.api.model.request;
+package com.flowly.api.model.request.authorization;
 
 import jakarta.validation.constraints.NotBlank;
 
