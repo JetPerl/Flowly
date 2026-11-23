@@ -122,14 +122,17 @@ Controller (Interface + Impl)
 - 📌 Закрепление важных операций
 
 ### Счета
-- 💳 Несколько счетов: карта, наличные, депозит, криптовалюта, инвестиции
-- 💱 Мультивалютность: BYN, USD, EUR, RUB — с автоматической конвертацией через курсы НБРБ
+- 💳 Несколько счетов: обычный, карта, наличные, сберегательный, криптовалюта, инвестиции — с созданием, редактированием и удалением
+- 💱 Мультивалютность: BYN, USD, EUR, RUB — с автоматической конвертацией через курсы НБРБ при операциях и переводах
+- 🛡️ Контроль остатка: наличный счёт (`CASH`) защищён от ухода баланса в минус при изменении счёта и проведении операций
 - 📊 Общий баланс в основной валюте с разбивкой по типам счетов
 
 ### Категории и теги
-- 🗂 100+ категорий с SVG-иконками и цветовой маркировкой
+- 🗂 100+ системных категорий с SVG-иконками и цветовой маркировкой, поддержка вложенных подкатегорий (до 5 уровней) и вывода в виде дерева (`asTree`)
+- ✏️ Пользовательские категории и теги: создание, редактирование и удаление (при удалении категории операции автоматически переносятся в «Без категории»)
+- 🎨 Персонализация стандартных категорий и тегов для каждого пользователя (переименование, смена иконки/цвета, скрытие и сброс к настройкам по умолчанию)
 - 🏷 Теги для гибкой классификации операций
-- 📁 Разделение на доходы и расходы
+- 📁 Разделение категорий на доходы (`INCOME`) и расходы (`EXPENSE`)
 
 ### Дополнительные возможности
 - 📸 Фото чека — прикрепление изображения к операции (`multipart/form-data`)
@@ -235,22 +238,173 @@ FlowlyProject/
 │       ├── CurrencyListScreen.tsx
 │       └── SecurityList.tsx
 │
-└── backend-java/                                    # Spring Boot
-    └── src/main/java/com/flowly/api/
-        ├── config/                                  # RestClient, Swagger, WebMvc, OpenAPI
-        ├── controller/                              # Интерфейсы контроллеров + impl/
-        ├── service/                                 # Бизнес-логика + impl/
-        ├── model/
-        │   ├── entity/                              # JPA-сущности (Operation, Account…)
-        │   ├── dto/                                 # DTO (AccountDto, CategoryDto…)
-        │   ├── request/                             # Запросы (Create, Patch, Login…)
-        │   ├── response/                            # Ответы (AccountResponse, AuthResponse…)
-        │   └── enums/                               # AccountType, CategoryType, OperationType
-        ├── mapper/                                  # MapStruct-маппинги
-        ├── security/                                # SecurityConfig, Keycloak JWT, EntryPoint
-        ├── exception/                               # Доменные исключения
-        ├── handler/                                 # GlobalExceptionHandler
-        └── utils/                                   # SecurityUtils
+└── backend-java/                                                # Spring Boot REST API
+    └── src/
+        ├── main/
+        │   ├── java/com/flowly/api/
+        │   │   ├── FlowlyApplication.java                       # Точка входа Spring Boot приложения
+        │   │   ├── config/                                      
+        │   │   │   ├── RestClientConfig.java                    # Настройка HTTP-клиента RestClient и таймаутов
+        │   │   │   ├── SwaggerConfig.java                       # Конфигурация авторизации OAuth2 в Swagger UI
+        │   │   │   ├── WebMvcConfig.java                        # Настройки Spring Web MVC (CORS, ресурсы и т.д.)
+        │   │   │   └── openapi/
+        │   │   │       ├── ApiExamples.java                     # Примеры JSON-ответов и ошибок для документации
+        │   │   │       ├── OpenApiConfig.java                   # Регистрация компонентов ответов OpenAPI
+        │   │   │       ├── annotations/
+        │   │   │       │   └── BaseErrorResponses.java          # Аннотация общих ответов ошибок (401, 500)
+        │   │   │       └── paths/
+        │   │   │           └── ApiPaths.java                    # Константы базовых путей эндпоинтов API v1
+        │   │   ├── controller/                                  
+        │   │   │   ├── AccountController.java                   # Контракт эндпоинтов счетов
+        │   │   │   ├── AdminUserController.java                 # Контракт админ-эндпоинтов управления пользователями
+        │   │   │   ├── AuthController.java                      # Контракт эндпоинтов аутентификации и токенов
+        │   │   │   ├── CategoryController.java                  # Контракт эндпоинтов категорий и кастомизации
+        │   │   │   ├── FileController.java                      # Контракт эндпоинта загрузки файлов
+        │   │   │   ├── OperationController.java                 # Контракт эндпоинтов операций
+        │   │   │   ├── RateController.java                      # Контракт эндпоинта курсов валют
+        │   │   │   ├── TagController.java                       # Контракт эндпоинтов меток и кастомизации
+        │   │   │   └── impl/
+        │   │   │       ├── AccountControllerImpl.java           # Реализация контроллера счетов
+        │   │   │       ├── AdminUserControllerImpl.java         # Реализация админ-контроллера пользователей
+        │   │   │       ├── AuthControllerImpl.java              # Реализация контроллера аутентификации
+        │   │   │       ├── CategoryControllerImpl.java          # Реализация контроллера категорий
+        │   │   │       ├── FileControllerImpl.java              # Реализация контроллера файлов
+        │   │   │       ├── OperationControllerImpl.java         # Реализация контроллера операций
+        │   │   │       ├── RateControllerImpl.java              # Реализация контроллера курсов валют
+        │   │   │       └── TagControllerImpl.java               # Реализация контроллера меток
+        │   │   ├── exception/                                   
+        │   │   │   ├── BusinessValidationException.java         # Ошибка нарушения бизнес-правил
+        │   │   │   ├── ConflictException.java                   # Ошибка конфликта данных
+        │   │   │   ├── ForbiddenAccessException.java            # Ошибка отсутствия прав доступа к ресурсу
+        │   │   │   └── ResourceNotFoundException.java           # Ошибка «ресурс не найден»
+        │   │   ├── handler/
+        │   │   │   └── GlobalExceptionHandler.java              # Глобальный перехватчик исключений в HTTP-ответы
+        │   │   ├── mapper/                                      
+        │   │   │   ├── AccountMapper.java                       # Маппинг счетов
+        │   │   │   ├── CategoryMapper.java                      # Маппинг категорий
+        │   │   │   ├── OperationMapper.java                     # Маппинг операций
+        │   │   │   └── TagMapper.java                           # Маппинг меток
+        │   │   ├── model/                                       
+        │   │   │   ├── dto/
+        │   │   │   │   ├── AccountDto.java                      # DTO счёта
+        │   │   │   │   ├── CategoryDto.java                     # DTO категории
+        │   │   │   │   ├── NbrbRateDto.java                     # DTO записи курса валюты из API НБРБ
+        │   │   │   │   ├── OperationDto.java                    # DTO операции
+        │   │   │   │   ├── TagDto.java                          # DTO метки
+        │   │   │   │   └── UserDto.java                         # DTO пользователя
+        │   │   │   ├── entity/
+        │   │   │   │   ├── Account.java                         # JPA-сущность счёта
+        │   │   │   │   ├── Category.java                        # JPA-сущность категории
+        │   │   │   │   ├── Operation.java                       # JPA-сущность финансовой операции
+        │   │   │   │   ├── Tag.java                             # JPA-сущность метки
+        │   │   │   │   ├── User.java                            # JPA-сущность пользователя
+        │   │   │   │   ├── UserCategory.java                    # Персональные настройки категории пользователя
+        │   │   │   │   └── UserTag.java                         # Персональные настройки метки пользователя
+        │   │   │   ├── enums/
+        │   │   │   │   ├── AccountType.java                     # Типы счетов (например, CASH, CARD и др.)
+        │   │   │   │   ├── CategoryType.java                    # Типы категорий (EXPENSE, INCOME)
+        │   │   │   │   └── OperationType.java                   # Типы операций (EXPENSE, INCOME, TRANSFER)
+        │   │   │   ├── request/
+        │   │   │   │   ├── account/
+        │   │   │   │   │   ├── AccountCreateRequest.java        # Запрос на создание счёта
+        │   │   │   │   │   └── AccountUpdateRequest.java        # Запрос на частичное обновление счёта
+        │   │   │   │   ├── authorization/
+        │   │   │   │   │   ├── LoginRequest.java                # Запрос на вход
+        │   │   │   │   │   ├── LogoutRequest.java               # Запрос на выход / отзыв сессии
+        │   │   │   │   │   ├── RefreshTokenRequest.java         # Запрос на обновление access-токена
+        │   │   │   │   │   └── RegisterRequest.java             # Запрос на регистрацию пользователя
+        │   │   │   │   ├── category/
+        │   │   │   │   │   ├── CategoryCreateRequest.java       # Запрос на создание категории
+        │   │   │   │   │   └── CategoryUpdateRequest.java       # Запрос на обновление / кастомизацию категории
+        │   │   │   │   ├── operation/
+        │   │   │   │   │   ├── OperationCreateRequest.java      # Запрос на создание операции / перевода
+        │   │   │   │   │   └── OperationPatchRequest.java       # Запрос на частичное обновление операции
+        │   │   │   │   └── tag/
+        │   │   │   │       ├── TagCreateRequest.java            # Запрос на создание метки
+        │   │   │   │       └── TagUpdateRequest.java            # Запрос на обновление / кастомизацию метки
+        │   │   │   └── response/
+        │   │   │       ├── HttpErrorResponse.java               # Единый формат ответа об ошибке
+        │   │   │       ├── account/
+        │   │   │       │   └── AccountResponse.java             # Ответ с данными счёта
+        │   │   │       ├── authorization/
+        │   │   │       │   └── AuthResponse.java                # Ответ с токенами и данными пользователя
+        │   │   │       └── operation/
+        │   │   │           ├── OperationPageResponse.java       # Страница операций с метаданными пагинации
+        │   │   │           ├── OperationResponse.java           # Ответ с данными операции
+        │   │   │           └── PageInfoResponse.java            # Информация о курсорной пагинации
+        │   │   ├── repository/                                  
+        │   │   │   ├── AccountRepository.java                   # Репозиторий счетов
+        │   │   │   ├── CategoryRepository.java                  # Репозиторий категорий
+        │   │   │   ├── OperationRepository.java                 # Репозиторий операций
+        │   │   │   ├── TagRepository.java                       # Репозиторий меток
+        │   │   │   ├── UserCategoryRepository.java              # Репозиторий персональных настроек категорий
+        │   │   │   ├── UserRepository.java                      # Репозиторий пользователей
+        │   │   │   └── UserTagRepository.java                   # Репозиторий персональных настроек меток
+        │   │   ├── security/                                    
+        │   │   │   ├── CustomAccessDeniedHandler.java           # Обработка 403 Forbidden
+        │   │   │   ├── CustomAuthenticationEntryPoint.java      # Обработка 401 Unauthorized
+        │   │   │   └── SecurityConfig.java                      # Конфигурация Spring Security и Resource Server
+        │   │   ├── service/                                     
+        │   │   │   ├── AccountService.java                      # Контракт сервиса счетов
+        │   │   │   ├── AdminUserService.java                    # Контракт админ-сервиса пользователей
+        │   │   │   ├── AuthService.java                         # Контракт сервиса аутентификации
+        │   │   │   ├── CategoryService.java                     # Контракт сервиса категорий
+        │   │   │   ├── FileStorageService.java                  # Контракт сервиса хранения файлов
+        │   │   │   ├── OperationService.java                    # Контракт сервиса операций
+        │   │   │   ├── RateService.java                         # Контракт сервиса курсов валют
+        │   │   │   ├── TagService.java                          # Контракт сервиса меток
+        │   │   │   └── impl/
+        │   │   │       ├── AccountServiceImpl.java              # CRUD счетов и контроль баланса CASH
+        │   │   │       ├── AdminUserServiceImpl.java            # Удаление пользователей в БД и Keycloak
+        │   │   │       ├── AuthServiceImpl.java                 # Регистрация, вход, refresh и logout через Keycloak
+        │   │   │       ├── CategoryServiceImpl.java             # Иерархия, CRUD, скрытие, сброс и кастомизация категорий
+        │   │   │       ├── FileStorageServiceImpl.java          # Сохранение загруженных файлов
+        │   │   │       ├── OperationServiceImpl.java            # CRUD операций, переводы, конвертация валют и балансы
+        │   │   │       ├── RateServiceImpl.java                 # Периодическое обновление и кэширование курсов НБРБ
+        │   │   │       └── TagServiceImpl.java                  # CRUD, скрытие, сброс и кастомизация меток
+        │   │   ├── utils/
+        │   │   │   ├── CategoryAccessPolicy.java                # Проверка прав доступа к системным и пользовательским категориям
+        │   │   │   └── SecurityUtils.java                       # Извлечение данных текущего пользователя из JWT
+        │   │   └── validation/                                  
+        │   │       ├── ValidStringFieldValidator.java           # Валидатор строковых ограничений
+        │   │       ├── annotations/
+        │   │       │   └── ValidStringField.java                # Аннотация валидации строкового поля
+        │   │       └── constraints/
+        │   │           ├── PatternType.java                     # Наборы регулярных выражений для полей
+        │   │           └── StringFieldConstraintType.java       # Типы ограничений длины и формата строк
+        │   └── resources/
+        │       ├── application.yml                              # Конфигурация БД, Keycloak, Swagger и таймаутов
+        │       └── db/migration/                                # Миграции схемы и данных Liquibase
+        │           ├── db.changelog-master.xml                  # Главный changelog Liquibase
+        │           └── 2026/11/
+        │               ├── 11/
+        │               │   ├── 2026-11-11_create_accounts_table.sql               # Создание таблицы счетов
+        │               │   ├── 2026-11-11_create_budgets_table.sql                # Создание таблицы бюджетов
+        │               │   ├── 2026-11-11_create_categories_table.sql             # Создание таблицы категорий
+        │               │   ├── 2026-11-11_create_crypto_assets_table.sql          # Создание таблицы криптоактивов
+        │               │   ├── 2026-11-11_create_exchange_rates_table.sql         # Создание таблицы курсов валют
+        │               │   ├── 2026-11-11_create_goals_table.sql                  # Создание таблицы целей
+        │               │   ├── 2026-11-11_create_indexes.sql                      # Создание индексов БД
+        │               │   ├── 2026-11-11_create_logs_table.sql                   # Создание таблицы логов
+        │               │   ├── 2026-11-11_create_merchants_table.sql              # Создание таблицы мерчантов
+        │               │   ├── 2026-11-11_create_operation_tags_table.sql         # Создание M2M таблицы операций и меток
+        │               │   ├── 2026-11-11_create_operations_table.sql             # Создание таблицы операций
+        │               │   ├── 2026-11-11_create_tags_table.sql                   # Создание таблицы меток
+        │               │   ├── 2026-11-11_create_user_sessions_table.sql          # Создание таблицы пользовательских сессий
+        │               │   ├── 2026-11-11_create_users_table.sql                  # Создание таблицы пользователей
+        │               │   ├── 2026-11-11_insert_initial_categories.sql           # Начальное наполнение категорий
+        │               │   ├── 2026-11-11_insert_initial_exchange_rates.sql       # Начальное наполнение курсов валют
+        │               │   └── 2026-11-11_insert_initial_tags.sql                 # Начальное наполнение меток
+        │               ├── 20/
+        │               │   ├── 2026-11-20_add_keycloak_id_column.sql              # Добавление keycloak_id в users
+        │               │   ├── 2026-11-20_configure_operations_fk_on_delete.sql   # Настройка ON DELETE для операций
+        │               │   ├── 2026-11-20_configure_user_fk_on_delete.sql         # Настройка ON DELETE для пользователя
+        │               │   └── 2026-11-20_drop_password_hash_column.sql           # Удаление устаревшей колонки password_hash
+        │               └── 23/
+        │                   ├── 2026-11-23_add_is_system_and_user_tags.sql         # Поля системности и привязка меток к пользователю
+        │                   ├── 2026-11-23_create_user_categories_table.sql        # Создание таблицы user_categories
+        │                   └── 2026-11-23_create_user_tags_table.sql              # Создание таблицы user_tags
+        └── test/java/com/flowly/api/                                              # Пакет тестов приложения
 ```
 
 ---
@@ -270,18 +424,6 @@ Swagger UI доступен по адресу: `http://localhost:8080/swagger-ui
 | `POST` | `/auth/refresh` | Обновление access-токена |
 | `POST` | `/auth/logout` | Инвалидация сессии в Keycloak |
 
-### Счета
-
-| Метод | Путь | Описание |
-|-------|------|----------|
-| `GET` | `/accounts` | Список счетов текущего пользователя |
-
-### Категории
-
-| Метод | Путь | Описание |
-|-------|------|----------|
-| `GET` | `/categories?type=EXPENSE\|INCOME` | Список категорий с фильтрацией по типу |
-
 ### Операции
 
 | Метод | Путь | Описание |
@@ -300,11 +442,42 @@ Swagger UI доступен по адресу: `http://localhost:8080/swagger-ui
 | `limit` | `int` | Количество записей (по умолчанию 20) |
 | `type` | `EXPENSE\|INCOME\|TRANSFER?` | Фильтр по типу |
 
-### Теги, Курсы, Файлы
+### Счета
 
 | Метод | Путь | Описание |
 |-------|------|----------|
-| `GET` | `/tags` | Список тегов пользователя |
+| `GET` | `/accounts` | Список счетов текущего пользователя |
+| `GET` | `/accounts/{id}` | Получение информации о счёте по ID |
+| `POST` | `/accounts` | Создание нового счёта пользователя |
+| `PATCH` | `/accounts/{id}` | Частичное обновление счёта (название, баланс, валюта, тип, цвет, иконка) |
+| `DELETE` | `/accounts/{id}` | Удаление счёта пользователя |
+
+### Категории
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| `GET` | `/categories` | Список категорий пользователя (`type`, `includeHidden`, `asTree` до 5 уровней) |
+| `GET` | `/categories/{id}` | Получение категории по ID |
+| `POST` | `/categories` | Создание пользовательской категории или подкатегории |
+| `PATCH` | `/categories/{id}` | Изменение пользовательской категории или персональная настройка/скрытие стандартной |
+| `POST` | `/categories/{id}/reset` | Сброс персональных настроек стандартной категории к значениям по умолчанию |
+| `DELETE` | `/categories/{id}` | Удаление пользовательской категории (операции переводятся в «Без категории») |
+
+### Теги (метки)
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| `GET` | `/tags` | Список меток пользователя (`includeHidden`) |
+| `GET` | `/tags/{id}` | Получение метки по ID |
+| `POST` | `/tags` | Создание пользовательской метки |
+| `PATCH` | `/tags/{id}` | Изменение пользовательской метки или персональная настройка/скрытие стандартной |
+| `POST` | `/tags/{id}/reset` | Сброс персональных настроек стандартной метки к значениям по умолчанию |
+| `DELETE` | `/tags/{id}` | Отвязка метки от операций и удаление пользовательской метки |
+
+### Курсы и Файлы
+
+| Метод | Путь | Описание |
+|-------|------|----------|
 | `GET` | `/rates` | Актуальные курсы валют (НБРБ) |
 | `POST` | `/files/upload` | Загрузка фото-чека (`multipart/form-data`) |
 
@@ -313,9 +486,8 @@ Swagger UI доступен по адресу: `http://localhost:8080/swagger-ui
 ```json
 {
   "status": 400,
-  "error": "Bad Request",
-  "message": "Validation failed",
-  "timestamp": "2026-11-23T12:00:00Z"
+  "type": "Bad Request",
+  "message": "Некорректные данные в запросе"
 }
 ```
 
@@ -433,9 +605,11 @@ npm run android
 |---------|----------|
 | `users` | Пользователи (связь с Keycloak через `keycloak_id`) |
 | `accounts` | Счета (тип, валюта, баланс, иконка, цвет) |
-| `categories` | Категории (тип INCOME/EXPENSE, иконка, цвет, пользователь) |
+| `categories` | Системные (`is_system`) и пользовательские категории (тип `INCOME`/`EXPENSE`, иерархия `parent_id`, иконка, цвет) |
+| `user_categories` | Персональные настройки стандартных категорий пользователя (название, цвет, иконка, родитель, скрытие) |
 | `operations` | Финансовые операции (сумма, тип, дата, заметка, место, фото) |
-| `tags` | Пользовательские теги |
+| `tags` | Системные (`is_system`) и пользовательские метки (название, цвет, иконка) |
+| `user_tags` | Персональные настройки стандартных меток пользователя (название, цвет, иконка, скрытие) |
 | `operation_tags` | M2M связь операций и тегов |
 | `exchange_rates` | Кэш курсов валют (НБРБ) |
 | `user_sessions` | JWT refresh-сессии |
