@@ -151,68 +151,68 @@ Controller (Interface + Impl)
 ```
 FlowlyProject/
 │
-├── Flowly/                              # React Native / Expo
+├── Flowly/                                          # React Native / Expo
 │   ├── app/
-│   │   ├── _layout.tsx                 # Корневой layout (провайдеры, шрифты)
+│   │   ├── _layout.tsx                              # Корневой layout (провайдеры, шрифты)
 │   │   ├── (tabs)/
-│   │   │   ├── index.tsx               # Главный экран (MainScreen)
-│   │   │   ├── report.tsx              # Экран отчётов
-│   │   │   └── profile/               # Профиль пользователя
+│   │   │   ├── index.tsx                            # Главный экран (MainScreen)
+│   │   │   ├── report.tsx                           # Экран отчётов
+│   │   │   └── profile/                             # Профиль пользователя
 │   │   │       ├── index.tsx
 │   │   │       ├── edit-profile.tsx
 │   │   │       ├── currency-list.tsx
 │   │   │       └── security.tsx
 │   │   ├── (modal)/
-│   │   │   ├── transactions/new/       # Создание / редактирование операции
-│   │   │   │   ├── index.tsx           # Основная форма
-│   │   │   │   ├── category/           # Выбор категории
-│   │   │   │   ├── account/            # Выбор счёта
-│   │   │   │   ├── tags/               # Выбор тегов
-│   │   │   │   ├── location.tsx        # Карта геолокации
-│   │   │   │   ├── category-new.tsx    # Создание новой категории
-│   │   │   │   └── account-new/        # Создание нового счёта
-│   │   │   └── security-code/          # Экран PIN-кода
-│   │   └── all-accounts.tsx            # Все счета
+│   │   │   ├── transactions/new/                    # Создание / редактирование операции
+│   │   │   │   ├── index.tsx                        # Основная форма
+│   │   │   │   ├── category/                        # Выбор категории
+│   │   │   │   ├── account/                         # Выбор счёта
+│   │   │   │   ├── tags/                            # Выбор тегов
+│   │   │   │   ├── location.tsx                     # Карта геолокации
+│   │   │   │   ├── category-new.tsx                 # Создание новой категории
+│   │   │   │   └── account-new/                     # Создание нового счёта
+│   │   │   └── security-code/                       # Экран PIN-кода
+│   │   └── all-accounts.tsx                         # Все счета
 │   │
 │   └── src/
-│       ├── api/                        # HTTP-слой
-│       │   ├── config.ts               # API_BASE_URL (EXPO_PUBLIC_API_URL)
-│       │   ├── client.ts               # apiRequest<T>, uploadImageFile
-│       │   ├── accounts.api.ts         # getAccounts()
-│       │   ├── categories.api.ts       # getCategories(type?)
-│       │   ├── operations.api.ts       # CRUD операций
-│       │   ├── tags.api.ts             # getTags()
-│       │   ├── rates.api.ts            # getRates()
-│       │   ├── files.api.ts            # uploadOperationPhoto()
-│       │   ├── auth.api.ts             # login, register, refresh, logout
+│       ├── api/                                     # HTTP-слой
+│       │   ├── config.ts                            # API_BASE_URL (EXPO_PUBLIC_API_URL)
+│       │   ├── client.ts                            # apiRequest<T>, uploadImageFile
+│       │   ├── accounts.api.ts                      # getAccounts()
+│       │   ├── categories.api.ts                    # getCategories(type?)
+│       │   ├── operations.api.ts                    # CRUD операций
+│       │   ├── tags.api.ts                          # getTags()
+│       │   ├── rates.api.ts                         # getRates()
+│       │   ├── files.api.ts                         # uploadOperationPhoto()
+│       │   ├── auth.api.ts                          # login, register, refresh, logout
 │       │   └── index.ts
 │       │
-│       ├── types/                      # TypeScript DTO (зеркало Java-моделей)
-│       │   ├── account.ts              # AccountResponse, AccountType
-│       │   ├── category.ts             # CategoryDto, CategoryType
-│       │   ├── operation.ts            # OperationResponse, OperationCreateRequest…
-│       │   ├── tag.ts                  # TagDto
-│       │   ├── auth.ts                 # AuthResponse, LoginRequest…
-│       │   ├── rates.ts                # RatesMap
-│       │   ├── common.ts              # ApiResponse, HttpErrorResponse
+│       ├── types/                                   # TypeScript DTO (зеркало Java-моделей)
+│       │   ├── account.ts                           # AccountResponse, AccountType
+│       │   ├── category.ts                          # CategoryDto, CategoryType
+│       │   ├── operation.ts                         # OperationResponse, OperationCreateRequest…
+│       │   ├── tag.ts                               # TagDto
+│       │   ├── auth.ts                              # AuthResponse, LoginRequest…
+│       │   ├── rates.ts                             # RatesMap
+│       │   ├── common.ts                            # ApiResponse, HttpErrorResponse
 │       │   └── index.ts
 │       │
-│       ├── utils/                      # Чистые утилиты
-│       │   ├── currency.ts             # Символы, конвертация, getRateToMain
-│       │   ├── formatters.ts           # Дата/время, числа (ru-RU локаль)
-│       │   ├── operationHelpers.ts     # Группировка операций по дням
+│       ├── utils/                                   # Чистые утилиты
+│       │   ├── currency.ts                          # Символы, конвертация, getRateToMain
+│       │   ├── formatters.ts                        # Дата/время, числа (ru-RU локаль)
+│       │   ├── operationHelpers.ts                  # Группировка операций по дням
 │       │   └── index.ts
 │       │
 │       ├── components/
-│       │   ├── CategoryIcon.tsx        # SVG-иконка категории
+│       │   ├── CategoryIcon.tsx                     # SVG-иконка категории
 │       │   └── operations/
-│       │       ├── OperationRow.tsx    # Универсальная строка операции
-│       │       ├── OperationIcon.tsx   # Иконка операции (доход/расход/перевод)
-│       │       ├── TransferIcon.tsx    # Двойная иконка перевода
-│       │       └── HistorySectionHeader.tsx  # Заголовок секции (дата + итог)
+│       │       ├── OperationRow.tsx                 # Универсальная строка операции
+│       │       ├── OperationIcon.tsx                # Иконка операции (доход/расход/перевод)
+│       │       ├── TransferIcon.tsx                 # Двойная иконка перевода
+│       │       └── HistorySectionHeader.tsx         # Заголовок секции (дата + итог)
 │       │
 │       ├── screens/
-│       │   └── main/components/        # Компоненты главного экрана
+│       │   └── main/components/                     # Компоненты главного экрана
 │       │       ├── BalanceSlider.tsx
 │       │       ├── AccountGroupsSummary.tsx
 │       │       ├── QuickActions.tsx
@@ -220,37 +220,37 @@ FlowlyProject/
 │       │       ├── ExchangeRatesCard.tsx
 │       │       └── HeroParallaxHeader.tsx
 │       │
-│       ├── security/                   # PIN + биометрия
+│       ├── security/                                # PIN + биометрия
 │       │   └── SecurityCodeProvider.tsx
-│       ├── context/                    # TransactionDraftContext
-│       ├── currency/                   # CurrencyContext
-│       ├── avatar/                     # AvatarContext
-│       ├── location/                   # locationService.ts
-│       ├── icons/                      # categoryIcons.ts (100+ SVG)
+│       ├── context/                                 # TransactionDraftContext
+│       ├── currency/                                # CurrencyContext
+│       ├── avatar/                                  # AvatarContext
+│       ├── location/                                # locationService.ts
+│       ├── icons/                                   # categoryIcons.ts (100+ SVG)
 │       │
-│       ├── MainScreen.tsx              # Главный экран (история + баланс)
-│       ├── AllAccountsScreen.tsx       # Экран всех счетов
+│       ├── MainScreen.tsx                           # Главный экран (история + баланс)
+│       ├── AllAccountsScreen.tsx                    # Экран всех счетов
 │       ├── ProfileScreen.tsx
 │       ├── EditProfile.tsx
 │       ├── CurrencyListScreen.tsx
 │       └── SecurityList.tsx
 │
-└── backend-java/                       # Spring Boot
+└── backend-java/                                    # Spring Boot
     └── src/main/java/com/flowly/api/
-        ├── config/                     # RestClient, Swagger, WebMvc, OpenAPI
-        ├── controller/                 # Интерфейсы контроллеров + impl/
-        ├── service/                    # Бизнес-логика + impl/
+        ├── config/                                  # RestClient, Swagger, WebMvc, OpenAPI
+        ├── controller/                              # Интерфейсы контроллеров + impl/
+        ├── service/                                 # Бизнес-логика + impl/
         ├── model/
-        │   ├── entity/                 # JPA-сущности (Operation, Account…)
-        │   ├── dto/                    # DTO (AccountDto, CategoryDto…)
-        │   ├── request/                # Запросы (Create, Patch, Login…)
-        │   ├── response/               # Ответы (AccountResponse, AuthResponse…)
-        │   └── enums/                  # AccountType, CategoryType, OperationType
-        ├── mapper/                     # MapStruct-маппинги
-        ├── security/                   # SecurityConfig, Keycloak JWT, EntryPoint
-        ├── exception/                  # Доменные исключения
-        ├── handler/                    # GlobalExceptionHandler
-        └── utils/                      # SecurityUtils
+        │   ├── entity/                              # JPA-сущности (Operation, Account…)
+        │   ├── dto/                                 # DTO (AccountDto, CategoryDto…)
+        │   ├── request/                             # Запросы (Create, Patch, Login…)
+        │   ├── response/                            # Ответы (AccountResponse, AuthResponse…)
+        │   └── enums/                               # AccountType, CategoryType, OperationType
+        ├── mapper/                                  # MapStruct-маппинги
+        ├── security/                                # SecurityConfig, Keycloak JWT, EntryPoint
+        ├── exception/                               # Доменные исключения
+        ├── handler/                                 # GlobalExceptionHandler
+        └── utils/                                   # SecurityUtils
 ```
 
 ---
