@@ -67,6 +67,26 @@ public class OpenApiConfig {
                                 "OperationDetailsSuccess",
                                 jsonResponse("Операция успешно получена", ApiExamples.OPERATION_DETAILS_SUCCESS)
                         )
+                        .addResponses(
+                                "CategoriesListSuccess",
+                                jsonResponse("Список категорий успешно получен", ApiExamples.CATEGORIES_LIST_SUCCESS)
+                        )
+                        .addResponses(
+                                "CategoryDetailsSuccess",
+                                jsonResponse("Данные категории успешно получены", ApiExamples.CATEGORY_DETAILS_SUCCESS)
+                        )
+                        .addResponses(
+                                "TagsListSuccess",
+                                jsonResponse("Список меток успешно получен", ApiExamples.TAGS_LIST_SUCCESS)
+                        )
+                        .addResponses(
+                                "TagDetailsSuccess",
+                                jsonResponse("Данные метки успешно получены", ApiExamples.TAG_DETAILS_SUCCESS)
+                        )
+                        .addResponses(
+                                "AccountDetailsSuccess",
+                                jsonResponse("Данные счета успешно получены", ApiExamples.ACCOUNT_DETAILS_SUCCESS)
+                        )
                 );
     }
 

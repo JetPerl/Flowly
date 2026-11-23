@@ -1,5 +1,6 @@
 package com.flowly.api.controller;
 
+import com.flowly.api.config.openapi.paths.ApiPaths;
 import com.flowly.api.config.openapi.annotations.BaseErrorResponses;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -11,7 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 
 import java.util.Map;
 
-@RequestMapping("/api/v1/rates")
+@RequestMapping(ApiPaths.RATES)
 @Tag(name = "Курсы валют", description = "Методы для получения актуальных курсов валют")
 public interface RateController {
 

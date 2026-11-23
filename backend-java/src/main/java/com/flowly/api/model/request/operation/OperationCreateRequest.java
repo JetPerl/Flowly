@@ -1,4 +1,4 @@
-package com.flowly.api.model.request;
+package com.flowly.api.model.request.operation;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.flowly.api.model.enums.OperationType;

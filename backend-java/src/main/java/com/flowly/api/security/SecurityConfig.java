@@ -1,5 +1,6 @@
 package com.flowly.api.security;
 
+import com.flowly.api.config.openapi.paths.ApiPaths;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -41,8 +42,8 @@ public class SecurityConfig {
     private final CustomAccessDeniedHandler customAccessDeniedHandler;
 
     private static final String[] WHITELIST_URLS = {
-            "/api/v1/auth/**",
-            "/api/v1/rates/**",
+            ApiPaths.AUTH + "/**",
+            ApiPaths.RATES + "/**",
             "/uploads/**",
             "/v3/api-docs/**",
             "/swagger-ui/**",

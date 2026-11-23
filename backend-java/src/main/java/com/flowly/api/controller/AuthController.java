@@ -1,11 +1,12 @@
 package com.flowly.api.controller;
 
+import com.flowly.api.config.openapi.paths.ApiPaths;
 import com.flowly.api.config.openapi.annotations.BaseErrorResponses;
-import com.flowly.api.model.request.LoginRequest;
-import com.flowly.api.model.request.LogoutRequest;
-import com.flowly.api.model.request.RefreshTokenRequest;
-import com.flowly.api.model.request.RegisterRequest;
-import com.flowly.api.model.response.AuthResponse;
+import com.flowly.api.model.request.authorization.LoginRequest;
+import com.flowly.api.model.request.authorization.LogoutRequest;
+import com.flowly.api.model.request.authorization.RefreshTokenRequest;
+import com.flowly.api.model.request.authorization.RegisterRequest;
+import com.flowly.api.model.response.authorization.AuthResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -20,7 +21,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
  * REST-контракт для открытых операций регистрации и авторизации пользователей.
  */
 
-@RequestMapping("/api/v1/auth")
+@RequestMapping(ApiPaths.AUTH)
 @Tag(name = "Аутентификация", description = "Методы для регистрации новых пользователей и управления JWT-токенами")
 public interface AuthController {
 

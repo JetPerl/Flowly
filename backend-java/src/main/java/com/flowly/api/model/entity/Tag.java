@@ -2,9 +2,12 @@ package com.flowly.api.model.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -28,10 +31,26 @@ public class Tag {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Integer id;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 100)
     String name;
 
     String color;
 
     String icon;
+
+    @Column(name = "sort_order")
+    @Builder.Default
+    Integer sortOrder = 0;
+
+    @Column(name = "is_system", nullable = false)
+    @Builder.Default
+    Boolean isSystem = false;
+
+    @Column(name = "is_archived", nullable = false)
+    @Builder.Default
+    Boolean isArchived = false;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    User user;
 }

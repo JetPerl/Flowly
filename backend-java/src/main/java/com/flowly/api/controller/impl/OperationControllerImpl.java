@@ -1,10 +1,10 @@
 package com.flowly.api.controller.impl;
 
 import com.flowly.api.controller.OperationController;
-import com.flowly.api.model.request.OperationCreateRequest;
-import com.flowly.api.model.request.OperationPatchRequest;
-import com.flowly.api.model.response.OperationPageResponse;
-import com.flowly.api.model.response.OperationResponse;
+import com.flowly.api.model.request.operation.OperationCreateRequest;
+import com.flowly.api.model.request.operation.OperationPatchRequest;
+import com.flowly.api.model.response.operation.OperationPageResponse;
+import com.flowly.api.model.response.operation.OperationResponse;
 import com.flowly.api.service.OperationService;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;

@@ -1,11 +1,11 @@
 package com.flowly.api.controller.impl;
 
 import com.flowly.api.controller.AuthController;
-import com.flowly.api.model.request.LoginRequest;
-import com.flowly.api.model.request.LogoutRequest;
-import com.flowly.api.model.request.RefreshTokenRequest;
-import com.flowly.api.model.request.RegisterRequest;
-import com.flowly.api.model.response.AuthResponse;
+import com.flowly.api.model.request.authorization.LoginRequest;
+import com.flowly.api.model.request.authorization.LogoutRequest;
+import com.flowly.api.model.request.authorization.RefreshTokenRequest;
+import com.flowly.api.model.request.authorization.RegisterRequest;
+import com.flowly.api.model.response.authorization.AuthResponse;
 import com.flowly.api.service.AuthService;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;

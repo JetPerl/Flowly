@@ -11,6 +11,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -19,6 +20,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.FieldDefaults;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "categories")
@@ -41,12 +45,28 @@ public class Category {
     @Column(nullable = false)
     CategoryType type;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_id")
+    Category parent;
+
+    @OneToMany(mappedBy = "parent", fetch = FetchType.LAZY)
+    @Builder.Default
+    List<Category> children = new ArrayList<>();
+
     String icon;
 
     String color;
 
-    @Column(name = "is_hidden")
-    Boolean isHidden;
+    @Column(name = "sort_order")
+    Integer sortOrder;
+
+    @Column(name = "is_hidden", nullable = false)
+    @Builder.Default
+    Boolean isHidden = false;
+
+    @Column(name = "is_system", nullable = false)
+    @Builder.Default
+    Boolean isSystem = false;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")

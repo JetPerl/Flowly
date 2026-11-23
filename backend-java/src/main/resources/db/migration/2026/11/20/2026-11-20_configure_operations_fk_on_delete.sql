@@ -1,5 +1,5 @@
 --liquibase formatted SQL
---changeset Ilya_Burnas:2026-11-21-configure-operations-fk-on-delete
+--changeset Ilya_Burnas:2026-11-20-configure-operations-fk-on-delete
 
 ALTER TABLE operations
 DROP CONSTRAINT IF EXISTS operations_account_id_fkey,

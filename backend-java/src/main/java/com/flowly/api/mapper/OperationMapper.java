@@ -1,7 +1,7 @@
 package com.flowly.api.mapper;
 
 import com.flowly.api.model.entity.Operation;
-import com.flowly.api.model.response.OperationResponse;
+import com.flowly.api.model.response.operation.OperationResponse;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingConstants;

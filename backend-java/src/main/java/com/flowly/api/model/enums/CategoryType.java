@@ -4,8 +4,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 
 public enum CategoryType {
     INCOME,
-    EXPENSE,
-    TRANSFER;
+    EXPENSE;
 
     @JsonCreator
     public static CategoryType fromValue(String value) {
