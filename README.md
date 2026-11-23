@@ -463,7 +463,7 @@ operation {
 
 ## 👨‍💻 Автор
 
-**Ilya Burnos** — Full-Stack разработчик
+**Nexodex** — Full-Stack разработчик
 
 - GitHub: [@JetPerl](https://github.com/JetPerl)
 
