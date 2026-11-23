@@ -465,7 +465,7 @@ operation {
 
 **Ilya Burnos** — Full-Stack разработчик
 
-- GitHub: [@ilaburnos](https://github.com/ilaburnos)
+- GitHub: [@JetPerl](https://github.com/JetPerl)
 
 ---
 
