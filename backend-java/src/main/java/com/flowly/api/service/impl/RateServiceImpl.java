@@ -1,5 +1,6 @@
 package com.flowly.api.service.impl;
 
+import com.flowly.api.exception.BusinessValidationException;
 import com.flowly.api.model.dto.NbrbRateDto;
 import com.flowly.api.service.RateService;
 import jakarta.annotation.PostConstruct;
@@ -76,5 +77,31 @@ public class RateServiceImpl implements RateService {
     @Override
     public Map<String, Double> getCachedRates() {
         return Collections.unmodifiableMap(ratesCache);
+    }
+
+    @Override
+    public BigDecimal convert(BigDecimal amount, String fromCurrency, String toCurrency) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) == 0) {
+            return BigDecimal.ZERO;
+        }
+        if (fromCurrency == null || toCurrency == null || fromCurrency.equalsIgnoreCase(toCurrency)) {
+            return amount;
+        }
+
+        String normalizedFrom = fromCurrency.trim().toUpperCase();
+        String normalizedTo = toCurrency.trim().toUpperCase();
+
+        Double fromRate = ratesCache.get(normalizedFrom);
+        Double toRate = ratesCache.get(normalizedTo);
+
+        if (fromRate == null || fromRate <= 0) {
+            throw new BusinessValidationException("Не найден курс для валюты: " + fromCurrency);
+        }
+        if (toRate == null || toRate <= 0) {
+            throw new BusinessValidationException("Не найден курс для валюты: " + toCurrency);
+        }
+
+        BigDecimal amountInByn = amount.multiply(BigDecimal.valueOf(fromRate));
+        return amountInByn.divide(BigDecimal.valueOf(toRate), 4, RoundingMode.HALF_UP);
     }
 }

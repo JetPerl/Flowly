@@ -3,6 +3,8 @@ package com.flowly.api.service.impl;
 import com.flowly.api.exception.BusinessValidationException;
 import com.flowly.api.exception.ForbiddenAccessException;
 import com.flowly.api.exception.ResourceNotFoundException;
+import com.flowly.api.mapper.TagMapper;
+import com.flowly.api.model.dto.EffectiveTag;
 import com.flowly.api.model.dto.TagDto;
 import com.flowly.api.model.entity.Tag;
 import com.flowly.api.model.entity.User;
@@ -14,6 +16,7 @@ import com.flowly.api.repository.UserRepository;
 import com.flowly.api.repository.UserTagRepository;
 import com.flowly.api.service.TagService;
 import com.flowly.api.utils.SecurityUtils;
+import com.flowly.api.utils.TagAccessPolicy;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -32,6 +35,7 @@ import java.util.stream.Collectors;
 public class TagServiceImpl implements TagService {
 
     TagRepository tagRepository;
+    TagMapper tagMapper;
     UserTagRepository userTagRepository;
     UserRepository userRepository;
 
@@ -50,7 +54,7 @@ public class TagServiceImpl implements TagService {
             UserTag override = overridesByTagId.get(tag.getId());
             EffectiveTag effective = resolveEffectiveTag(tag, override);
 
-            if (!includeHidden && Boolean.TRUE.equals(effective.isHidden())) {
+            if (!includeHidden && effective.isHidden()) {
                 continue;
             }
             effectiveTags.add(effective);
@@ -62,7 +66,7 @@ public class TagServiceImpl implements TagService {
         );
 
         return effectiveTags.stream()
-                .map(this::toDto)
+                .map(et -> tagMapper.toDto(et.tag(), et.override()))
                 .toList();
     }
 
@@ -72,7 +76,7 @@ public class TagServiceImpl implements TagService {
         Integer userId = SecurityUtils.getCurrentUserId();
         Tag tag = findAccessibleTag(id, userId);
         UserTag override = userTagRepository.findByUserIdAndTagId(userId, tag.getId()).orElse(null);
-        return toDto(resolveEffectiveTag(tag, override));
+        return tagMapper.toDto(tag, override);
     }
 
     @Override
@@ -81,18 +85,9 @@ public class TagServiceImpl implements TagService {
         Integer userId = SecurityUtils.getCurrentUserId();
         User user = getCurrentUserEntity(userId);
 
-        Tag tag = Tag.builder()
-                .name(request.name().trim())
-                .color(request.color())
-                .icon(request.icon())
-                .sortOrder(request.sortOrder() != null ? request.sortOrder() : 0)
-                .isSystem(false)
-                .isArchived(false)
-                .user(user)
-                .build();
-
+        Tag tag = tagMapper.toEntity(request, user);
         Tag saved = tagRepository.save(tag);
-        return toDto(resolveEffectiveTag(saved, null));
+        return tagMapper.toDto(saved, null);
     }
 
     @Override
@@ -102,32 +97,15 @@ public class TagServiceImpl implements TagService {
         User user = getCurrentUserEntity(userId);
         Tag tag = findAccessibleTag(id, userId);
 
-        boolean isSystem = Boolean.TRUE.equals(tag.getIsSystem());
-
-        if (!isSystem) {
+        if (!Boolean.TRUE.equals(tag.getIsSystem())) {
             if (tag.getUser() == null || !tag.getUser().getId().equals(userId)) {
                 throw new ForbiddenAccessException("У вас нет прав для изменения этой метки");
             }
 
-            if (request.name() != null) {
-                tag.setName(request.name().trim());
-            }
-            if (request.color() != null) {
-                tag.setColor(request.color());
-            }
-            if (request.icon() != null) {
-                tag.setIcon(request.icon());
-            }
-            if (request.sortOrder() != null) {
-                tag.setSortOrder(request.sortOrder());
-            }
-            if (request.isHidden() != null) {
-                tag.setIsArchived(request.isHidden());
-            }
-
+            tagMapper.updateEntityFromRequest(request, tag);
             Tag saved = tagRepository.save(tag);
             UserTag override = userTagRepository.findByUserIdAndTagId(userId, saved.getId()).orElse(null);
-            return toDto(resolveEffectiveTag(saved, override));
+            return tagMapper.toDto(saved, override);
         }
 
         UserTag override = userTagRepository.findByUserIdAndTagId(userId, tag.getId())
@@ -138,31 +116,13 @@ public class TagServiceImpl implements TagService {
                         .isCustomized(false)
                         .build());
 
-        if (request.name() != null) {
-            override.setCustomName(request.name().trim());
+        tagMapper.updateOverrideFromRequest(request, override);
+        if (hasCustomization(request)) {
             override.setIsCustomized(true);
-        }
-        if (request.color() != null) {
-            override.setCustomColor(request.color());
-            override.setIsCustomized(true);
-        }
-        if (request.icon() != null) {
-            override.setCustomIcon(request.icon());
-            override.setIsCustomized(true);
-        }
-        if (request.sortOrder() != null) {
-            override.setSortOrder(request.sortOrder());
-            override.setIsCustomized(true);
-        }
-        if (request.isHidden() != null) {
-            override.setIsHidden(request.isHidden());
-            if (request.isHidden()) {
-                override.setIsCustomized(true);
-            }
         }
 
         UserTag savedOverride = userTagRepository.save(override);
-        return toDto(resolveEffectiveTag(tag, savedOverride));
+        return tagMapper.toDto(tag, savedOverride);
     }
 
     @Override
@@ -178,7 +138,7 @@ public class TagServiceImpl implements TagService {
         userTagRepository.findByUserIdAndTagId(userId, tag.getId())
                 .ifPresent(userTagRepository::delete);
 
-        return toDto(resolveEffectiveTag(tag, null));
+        return tagMapper.toDto(tag, null);
     }
 
     @Override
@@ -206,12 +166,7 @@ public class TagServiceImpl implements TagService {
         Tag tag = tagRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Метка с ID " + id + " не найдена"));
 
-        boolean isSystem = Boolean.TRUE.equals(tag.getIsSystem()) && tag.getUser() == null;
-        boolean isOwner = tag.getUser() != null && tag.getUser().getId().equals(userId);
-
-        if (!isSystem && !isOwner) {
-            throw new ForbiddenAccessException("У вас нет прав доступа к этой метке");
-        }
+        TagAccessPolicy.assertAccessible(tag, userId);
         return tag;
     }
 
@@ -221,20 +176,9 @@ public class TagServiceImpl implements TagService {
     }
 
     private EffectiveTag resolveEffectiveTag(Tag tag, UserTag override) {
-        boolean isSystem = Boolean.TRUE.equals(tag.getIsSystem());
-        boolean customized = override != null && Boolean.TRUE.equals(override.getIsCustomized());
-
         String name = (override != null && override.getCustomName() != null)
                 ? override.getCustomName()
                 : tag.getName();
-
-        String color = (override != null && override.getCustomColor() != null)
-                ? override.getCustomColor()
-                : tag.getColor();
-
-        String icon = (override != null && override.getCustomIcon() != null)
-                ? override.getCustomIcon()
-                : tag.getIcon();
 
         Integer sortOrder = (override != null && override.getSortOrder() != null)
                 ? override.getSortOrder()
@@ -243,36 +187,14 @@ public class TagServiceImpl implements TagService {
         boolean hidden = (override != null && Boolean.TRUE.equals(override.getIsHidden()))
                 || Boolean.TRUE.equals(tag.getIsArchived());
 
-        return new EffectiveTag(
-                tag.getId(),
-                name,
-                color,
-                icon,
-                sortOrder,
-                isSystem,
-                customized,
-                hidden
-        );
+        return new EffectiveTag(tag, override, name, sortOrder, hidden);
     }
 
-    private TagDto toDto(EffectiveTag et) {
-        return new TagDto(
-                et.id().longValue(),
-                et.name(),
-                et.color(),
-                et.icon()
-        );
-    }
-
-    private record EffectiveTag(
-            Integer id,
-            String name,
-            String color,
-            String icon,
-            Integer sortOrder,
-            Boolean isSystem,
-            Boolean isCustomized,
-            Boolean isHidden
-    ) {
+    private boolean hasCustomization(TagUpdateRequest request) {
+        return request.name() != null
+                || request.color() != null
+                || request.icon() != null
+                || request.sortOrder() != null
+                || Boolean.TRUE.equals(request.isHidden());
     }
 }

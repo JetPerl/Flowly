@@ -4,6 +4,7 @@ import com.flowly.api.exception.BusinessValidationException;
 import com.flowly.api.exception.ForbiddenAccessException;
 import com.flowly.api.exception.ResourceNotFoundException;
 import com.flowly.api.mapper.OperationMapper;
+import com.flowly.api.mapper.TagMapper;
 import com.flowly.api.model.dto.TagDto;
 import com.flowly.api.model.entity.Account;
 import com.flowly.api.model.entity.Category;
@@ -27,6 +28,7 @@ import com.flowly.api.repository.UserTagRepository;
 import com.flowly.api.service.OperationService;
 import com.flowly.api.service.RateService;
 import com.flowly.api.utils.CategoryAccessPolicy;
+import com.flowly.api.utils.CursorCodec;
 import com.flowly.api.utils.SecurityUtils;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -36,16 +38,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
-import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -60,6 +62,7 @@ public class OperationServiceImpl implements OperationService {
     UserCategoryRepository userCategoryRepository;
     UserTagRepository userTagRepository;
     RateService rateService;
+    TagMapper tagMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -71,12 +74,10 @@ public class OperationServiceImpl implements OperationService {
             return new OperationPageResponse(List.of(), new PageInfoResponse(0, false, null));
         }
 
-        Integer decodedCursor = decodeCursor(cursor);
         int pageSize = (limit != null) ? limit : 20;
-
         List<Operation> operations = operationRepository.findOperationsWithCursor(
                 accountIds,
-                decodedCursor,
+                CursorCodec.decode(cursor),
                 PageRequest.of(0, pageSize + 1)
         );
 
@@ -86,16 +87,9 @@ public class OperationServiceImpl implements OperationService {
         }
 
         List<OperationResponse> items = enrichOperations(operations, userId);
+        String nextCursor = (hasNext && !operations.isEmpty()) ? CursorCodec.encode(operations.getLast().getId()) : null;
 
-        String nextCursor = null;
-        if (hasNext && !operations.isEmpty()) {
-            nextCursor = encodeCursor(operations.getLast().getId());
-        }
-
-        return new OperationPageResponse(
-                items,
-                new PageInfoResponse(items.size(), hasNext, nextCursor)
-        );
+        return new OperationPageResponse(items, new PageInfoResponse(items.size(), hasNext, nextCursor));
     }
 
     @Override
@@ -110,123 +104,16 @@ public class OperationServiceImpl implements OperationService {
     @Transactional
     public OperationResponse createOperation(OperationCreateRequest request) {
         Integer userId = SecurityUtils.getCurrentUserId();
-
-        if (request.accountId() == null) {
-            throw new IllegalArgumentException("Идентификатор счета обязателен");
-        }
-        if (request.amount() == null || request.amount().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("Сумма операции должна быть больше нуля");
-        }
-
-        Integer sourceAccountId = request.accountId().intValue();
-        Account sourceAccount = accountRepository.findById(sourceAccountId)
-                .orElseThrow(() -> new ResourceNotFoundException("Счет с ID " + sourceAccountId + " не найден"));
-
-        if (!sourceAccount.getUser().getId().equals(userId)) {
-            throw new ForbiddenAccessException("Счет не принадлежит текущему пользователю");
-        }
+        validateCreateRequest(request);
 
         OffsetDateTime operationDate = request.dateTime() != null ? request.dateTime() : OffsetDateTime.now();
         boolean isPinned = Boolean.TRUE.equals(request.isPinned());
         List<Tag> operationTags = resolveAccessibleTags(request.tagIds(), userId);
 
         if (request.type() == OperationType.TRANSFER) {
-            if (request.relatedAccountId() == null) {
-                throw new IllegalArgumentException("Для перевода необходимо указать целевой счет (relatedAccountId)");
-            }
-
-            Integer targetAccountId = request.relatedAccountId().intValue();
-            Account targetAccount = accountRepository.findById(targetAccountId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Целевой счет с ID " + targetAccountId + " не найден"));
-
-            if (!targetAccount.getUser().getId().equals(userId)) {
-                throw new ForbiddenAccessException("Целевой счет не принадлежит текущему пользователю");
-            }
-
-            BigDecimal incomingAmount = request.targetAmount() != null ? request.targetAmount() : request.amount();
-            if (incomingAmount.compareTo(BigDecimal.ZERO) <= 0) {
-                throw new IllegalArgumentException("Сумма зачисления должна быть больше нуля");
-            }
-
-            int transferId = (int) (System.currentTimeMillis() % 1_000_000_000L);
-            String expenseCurrency = request.currency() != null ? request.currency() : sourceAccount.getCurrency();
-            String incomeCurrency = targetAccount.getCurrency();
-
-            BigDecimal sourceAccountDebit = convertAmount(request.amount(), expenseCurrency, sourceAccount.getCurrency());
-            BigDecimal targetAccountCredit = convertAmount(incomingAmount, incomeCurrency, targetAccount.getCurrency());
-
-            applyDeltaToAccount(sourceAccount, sourceAccountDebit.negate());
-            applyDeltaToAccount(targetAccount, targetAccountCredit);
-
-            Operation expensePart = buildTransferLeg(
-                    request,
-                    sourceAccount,
-                    targetAccount.getName(),
-                    request.amount(),
-                    OperationType.EXPENSE,
-                    expenseCurrency,
-                    targetAccountId,
-                    transferId,
-                    operationDate,
-                    isPinned,
-                    operationTags
-            );
-
-            Operation incomePart = buildTransferLeg(
-                    request,
-                    targetAccount,
-                    sourceAccount.getName(),
-                    incomingAmount,
-                    OperationType.INCOME,
-                    incomeCurrency,
-                    sourceAccountId,
-                    transferId,
-                    operationDate,
-                    isPinned,
-                    operationTags
-            );
-
-            accountRepository.save(sourceAccount);
-            accountRepository.save(targetAccount);
-
-            Operation savedExpense = operationRepository.save(expensePart);
-            operationRepository.save(incomePart);
-
-            return enrichOperation(savedExpense, userId);
+            return createTransfer(request, userId, operationDate, isPinned, operationTags);
         }
-
-        Category category = null;
-        if (request.categoryId() != null) {
-            category = resolveAccessibleCategory(request.categoryId().intValue(), userId);
-        }
-
-        String operationCurrency = request.currency() != null ? request.currency() : sourceAccount.getCurrency();
-        BigDecimal convertedAmount = convertAmount(request.amount(), operationCurrency, sourceAccount.getCurrency());
-        BigDecimal delta = calculateSignedDelta(request.type(), convertedAmount);
-
-        applyDeltaToAccount(sourceAccount, delta);
-        accountRepository.save(sourceAccount);
-
-        Operation operation = Operation.builder()
-                .account(sourceAccount)
-                .category(category)
-                .amount(request.amount())
-                .type(request.type())
-                .currency(operationCurrency)
-                .date(operationDate)
-                .comment(request.note())
-                .merchant(request.merchant())
-                .place(request.place())
-                .recipient(request.recipient())
-                .photoUrl(request.photoUrl())
-                .isPinned(isPinned)
-                .relatedAccountId(null)
-                .transferId(null)
-                .tags(operationTags)
-                .build();
-
-        Operation savedOperation = operationRepository.save(operation);
-        return enrichOperation(savedOperation, userId);
+        return createSingleOperation(request, userId, operationDate, isPinned, operationTags);
     }
 
     @Override
@@ -234,105 +121,54 @@ public class OperationServiceImpl implements OperationService {
     public OperationResponse patchOperation(Integer operationId, OperationPatchRequest request) {
         Integer userId = SecurityUtils.getCurrentUserId();
         Operation operation = findOwnedOperation(operationId, userId, "У вас нет прав для изменения этой операции");
-        List<Account> userAccounts = accountRepository.findByUserId(userId);
+        Operation partnerOperation = findTransferPartner(operation);
 
-        Operation partnerOperation = null;
-        if (operation.getTransferId() != null) {
-            partnerOperation = operationRepository.findAllByTransferId(operation.getTransferId())
-                    .stream()
-                    .filter(op -> !op.getId().equals(operation.getId()))
-                    .findFirst()
-                    .orElse(null);
+        if (request.amount() != null && request.amount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Сумма операции должна быть больше нуля");
         }
 
-        revertOperationBalanceImpact(operation);
+        Set<Integer> accountIdsToLock = Stream.of(
+                        operation.getAccount() != null ? operation.getAccount().getId() : null,
+                        partnerOperation != null && partnerOperation.getAccount() != null ? partnerOperation.getAccount().getId() : null,
+                        request.accountId() != null ? request.accountId().intValue() : null,
+                        request.relatedAccountId() != null ? request.relatedAccountId().intValue() : null
+                )
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        Map<Integer, Account> lockedAccounts = lockOwnedAccounts(accountIdsToLock, userId);
+
+        Account currentOpAccount = lockedAccounts.get(operation.getAccount().getId());
+        Account currentPartnerAccount = partnerOperation != null
+                ? lockedAccounts.get(partnerOperation.getAccount().getId())
+                : null;
+
+        revertOperationBalanceImpact(operation, currentOpAccount);
         if (partnerOperation != null) {
-            revertOperationBalanceImpact(partnerOperation);
+            revertOperationBalanceImpact(partnerOperation, currentPartnerAccount);
         }
+
+        operation.setAccount(currentOpAccount);
+        if (partnerOperation != null) {
+            partnerOperation.setAccount(currentPartnerAccount);
+        }
+
+        operationMapper.updateFromPatch(request, operation);
 
         if (request.categoryId() != null) {
             operation.setCategory(resolveAccessibleCategory(request.categoryId().intValue(), userId));
         }
 
         if (request.accountId() != null) {
-            Integer targetAccId = request.accountId().intValue();
-            Account newAccount = userAccounts.stream()
-                    .filter(acc -> acc.getId().equals(targetAccId))
-                    .findFirst()
-                    .orElseThrow(() -> new ResourceNotFoundException("Счет с ID " + targetAccId + " не найден у пользователя"));
-
+            Account newAccount = lockedAccounts.get(request.accountId().intValue());
             operation.setAccount(newAccount);
-            operation.setCurrency(newAccount.getCurrency());
-        }
-
-        if (request.amount() != null) {
-            if (request.amount().compareTo(BigDecimal.ZERO) <= 0) {
-                throw new IllegalArgumentException("Сумма операции должна быть больше нуля");
-            }
-            operation.setAmount(request.amount());
-        }
-
-        if (request.type() != null) {
-            operation.setType(request.type());
-        }
-
-        if (request.dateTime() != null) {
-            OffsetDateTime newDate = request.dateTime();
-            operation.setDate(newDate);
-            if (partnerOperation != null) {
-                partnerOperation.setDate(newDate);
-            }
-        }
-
-        if (request.note() != null) {
-            operation.setComment(request.note());
-            if (partnerOperation != null) {
-                partnerOperation.setComment(request.note());
-            }
-        }
-
-        if (request.recipient() != null) {
-            operation.setRecipient(request.recipient());
-        }
-
-        if (request.place() != null) {
-            operation.setPlace(request.place());
-            if (partnerOperation != null) {
-                partnerOperation.setPlace(request.place());
-            }
-        }
-
-        if (request.merchant() != null) {
-            operation.setMerchant(request.merchant());
-            if (partnerOperation != null) {
-                partnerOperation.setMerchant(request.merchant());
-            }
-        }
-
-        if (request.photoUrl() != null) {
-            operation.setPhotoUrl(request.photoUrl());
-            if (partnerOperation != null) {
-                partnerOperation.setPhotoUrl(request.photoUrl());
-            }
-        }
-
-        if (request.currency() != null) {
-            operation.setCurrency(request.currency());
-        }
-
-        if (request.isPinned() != null) {
-            operation.setIsPinned(request.isPinned());
-            if (partnerOperation != null) {
-                partnerOperation.setIsPinned(request.isPinned());
+            if (request.currency() == null) {
+                operation.setCurrency(newAccount.getCurrency());
             }
         }
 
         if (request.relatedAccountId() != null) {
-            Integer relatedId = request.relatedAccountId().intValue();
-            Account relatedAccount = userAccounts.stream()
-                    .filter(acc -> acc.getId().equals(relatedId))
-                    .findFirst()
-                    .orElseThrow(() -> new ResourceNotFoundException("Связанный счет с ID " + relatedId + " не найден у пользователя"));
+            Account relatedAccount = lockedAccounts.get(request.relatedAccountId().intValue());
             operation.setRelatedAccountId(relatedAccount.getId());
             if (partnerOperation != null) {
                 partnerOperation.setAccount(relatedAccount);
@@ -341,8 +177,11 @@ public class OperationServiceImpl implements OperationService {
             }
         }
 
-        if (request.amount() != null && partnerOperation != null && partnerOperation.getType() == OperationType.INCOME) {
-            partnerOperation.setAmount(request.amount());
+        if (partnerOperation != null) {
+            operationMapper.syncPartnerFromPatch(request, partnerOperation);
+            if (request.amount() != null && partnerOperation.getType() == OperationType.INCOME) {
+                partnerOperation.setAmount(request.amount());
+            }
         }
 
         if (request.tagIds() != null) {
@@ -353,11 +192,11 @@ public class OperationServiceImpl implements OperationService {
             }
         }
 
-        applyOperationBalanceImpact(operation);
+        applyOperationBalanceImpact(operation, operation.getAccount());
         accountRepository.save(operation.getAccount());
 
         if (partnerOperation != null) {
-            applyOperationBalanceImpact(partnerOperation);
+            applyOperationBalanceImpact(partnerOperation, partnerOperation.getAccount());
             accountRepository.save(partnerOperation.getAccount());
             operationRepository.save(partnerOperation);
         }
@@ -370,7 +209,6 @@ public class OperationServiceImpl implements OperationService {
     @Transactional
     public void deleteOperation(Integer operationId) {
         Integer userId = SecurityUtils.getCurrentUserId();
-
         Operation operation = operationRepository.findById(operationId).orElse(null);
         if (operation == null) {
             return;
@@ -386,34 +224,136 @@ public class OperationServiceImpl implements OperationService {
 
         if (operation.getTransferId() != null) {
             List<Operation> transferOperations = operationRepository.findAllByTransferId(operation.getTransferId());
+            Set<Integer> accountIds = transferOperations.stream()
+                    .map(leg -> leg.getAccount() != null ? leg.getAccount().getId() : null)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+
+            Map<Integer, Account> lockedAccounts = lockOwnedAccounts(accountIds, userId);
             for (Operation leg : transferOperations) {
-                revertOperationBalanceImpact(leg);
-                accountRepository.save(leg.getAccount());
+                Account lockedAccount = lockedAccounts.get(leg.getAccount().getId());
+                revertOperationBalanceImpact(leg, lockedAccount);
+                accountRepository.save(lockedAccount);
             }
             operationRepository.deleteAll(transferOperations);
         } else {
-            revertOperationBalanceImpact(operation);
-            accountRepository.save(operation.getAccount());
+            Integer accountId = operation.getAccount().getId();
+            Account lockedAccount = lockOwnedAccounts(Set.of(accountId), userId).get(accountId);
+            revertOperationBalanceImpact(operation, lockedAccount);
+            accountRepository.save(lockedAccount);
             operationRepository.delete(operation);
         }
     }
 
-    private void applyOperationBalanceImpact(Operation operation) {
-        String opCurrency = operation.getCurrency() != null
-                ? operation.getCurrency()
-                : operation.getAccount().getCurrency();
-        BigDecimal convertedAmount = convertAmount(operation.getAmount(), opCurrency, operation.getAccount().getCurrency());
-        BigDecimal delta = calculateSignedDelta(operation.getType(), convertedAmount);
-        applyDeltaToAccount(operation.getAccount(), delta);
+    private void validateCreateRequest(OperationCreateRequest request) {
+        if (request.accountId() == null) {
+            throw new IllegalArgumentException("Идентификатор счета обязателен");
+        }
+        if (request.amount() == null || request.amount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Сумма операции должна быть больше нуля");
+        }
+        if (request.type() == OperationType.TRANSFER) {
+            if (request.relatedAccountId() == null) {
+                throw new IllegalArgumentException("Для перевода необходимо указать целевой счет (relatedAccountId)");
+            }
+            BigDecimal incomingAmount = request.targetAmount() != null ? request.targetAmount() : request.amount();
+            if (incomingAmount.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("Сумма зачисления должна быть больше нуля");
+            }
+        }
     }
 
-    private void revertOperationBalanceImpact(Operation operation) {
-        String opCurrency = operation.getCurrency() != null
-                ? operation.getCurrency()
-                : operation.getAccount().getCurrency();
-        BigDecimal convertedAmount = convertAmount(operation.getAmount(), opCurrency, operation.getAccount().getCurrency());
-        BigDecimal delta = calculateSignedDelta(operation.getType(), convertedAmount).negate();
-        applyDeltaToAccount(operation.getAccount(), delta);
+    private OperationResponse createTransfer(
+            OperationCreateRequest request,
+            Integer userId,
+            OffsetDateTime operationDate,
+            boolean isPinned,
+            List<Tag> operationTags
+    ) {
+        Integer sourceAccountId = request.accountId().intValue();
+        Integer targetAccountId = request.relatedAccountId().intValue();
+        BigDecimal incomingAmount = request.targetAmount() != null ? request.targetAmount() : request.amount();
+
+        Map<Integer, Account> lockedAccounts = lockOwnedAccounts(Set.of(sourceAccountId, targetAccountId), userId);
+        Account sourceAccount = lockedAccounts.get(sourceAccountId);
+        Account targetAccount = lockedAccounts.get(targetAccountId);
+
+        int transferId = (int) (System.currentTimeMillis() % 1_000_000_000L);
+        String expenseCurrency = request.currency() != null ? request.currency() : sourceAccount.getCurrency();
+        String incomeCurrency = targetAccount.getCurrency();
+
+        BigDecimal sourceDebit = rateService.convert(request.amount(), expenseCurrency, sourceAccount.getCurrency());
+        BigDecimal targetCredit = rateService.convert(incomingAmount, incomeCurrency, targetAccount.getCurrency());
+
+        applyDeltaToAccount(sourceAccount, sourceDebit.negate());
+        applyDeltaToAccount(targetAccount, targetCredit);
+
+        Operation expensePart = operationMapper.toTransferLeg(
+                request, sourceAccount, targetAccount.getName(), request.amount(),
+                OperationType.EXPENSE, expenseCurrency, targetAccountId, transferId,
+                operationDate, isPinned, operationTags
+        );
+        Operation incomePart = operationMapper.toTransferLeg(
+                request, targetAccount, sourceAccount.getName(), incomingAmount,
+                OperationType.INCOME, incomeCurrency, sourceAccountId, transferId,
+                operationDate, isPinned, operationTags
+        );
+
+        accountRepository.save(sourceAccount);
+        accountRepository.save(targetAccount);
+        Operation savedExpense = operationRepository.save(expensePart);
+        operationRepository.save(incomePart);
+
+        return enrichOperation(savedExpense, userId);
+    }
+
+    private OperationResponse createSingleOperation(
+            OperationCreateRequest request,
+            Integer userId,
+            OffsetDateTime operationDate,
+            boolean isPinned,
+            List<Tag> operationTags
+    ) {
+        Integer sourceAccountId = request.accountId().intValue();
+        Account sourceAccount = lockOwnedAccounts(Set.of(sourceAccountId), userId).get(sourceAccountId);
+
+        Category category = request.categoryId() != null
+                ? resolveAccessibleCategory(request.categoryId().intValue(), userId)
+                : null;
+
+        String operationCurrency = request.currency() != null ? request.currency() : sourceAccount.getCurrency();
+        BigDecimal convertedAmount = rateService.convert(request.amount(), operationCurrency, sourceAccount.getCurrency());
+        BigDecimal delta = calculateSignedDelta(request.type(), convertedAmount);
+
+        applyDeltaToAccount(sourceAccount, delta);
+        accountRepository.save(sourceAccount);
+
+        Operation operation = operationMapper.toEntity(
+                request, sourceAccount, category, operationCurrency, operationDate, isPinned, operationTags
+        );
+        return enrichOperation(operationRepository.save(operation), userId);
+    }
+
+    private Operation findTransferPartner(Operation operation) {
+        if (operation.getTransferId() == null) {
+            return null;
+        }
+        return operationRepository.findAllByTransferId(operation.getTransferId()).stream()
+                .filter(op -> !op.getId().equals(operation.getId()))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private void applyOperationBalanceImpact(Operation operation, Account targetAccount) {
+        String opCurrency = operation.getCurrency() != null ? operation.getCurrency() : targetAccount.getCurrency();
+        BigDecimal convertedAmount = rateService.convert(operation.getAmount(), opCurrency, targetAccount.getCurrency());
+        applyDeltaToAccount(targetAccount, calculateSignedDelta(operation.getType(), convertedAmount));
+    }
+
+    private void revertOperationBalanceImpact(Operation operation, Account targetAccount) {
+        String opCurrency = operation.getCurrency() != null ? operation.getCurrency() : targetAccount.getCurrency();
+        BigDecimal convertedAmount = rateService.convert(operation.getAmount(), opCurrency, targetAccount.getCurrency());
+        applyDeltaToAccount(targetAccount, calculateSignedDelta(operation.getType(), convertedAmount).negate());
     }
 
     private BigDecimal calculateSignedDelta(OperationType type, BigDecimal amount) {
@@ -424,29 +364,6 @@ public class OperationServiceImpl implements OperationService {
             case EXPENSE, TRANSFER -> amount.negate();
             case INCOME -> amount;
         };
-    }
-
-    private BigDecimal convertAmount(BigDecimal amount, String fromCurrency, String toCurrency) {
-        if (amount == null || amount.compareTo(BigDecimal.ZERO) == 0) {
-            return BigDecimal.ZERO;
-        }
-        if (fromCurrency == null || toCurrency == null || fromCurrency.equalsIgnoreCase(toCurrency)) {
-            return amount;
-        }
-
-        Map<String, Double> rates = rateService.getCachedRates();
-        Double fromRate = rates.get(fromCurrency.trim().toUpperCase());
-        Double toRate = rates.get(toCurrency.trim().toUpperCase());
-
-        if (fromRate == null || fromRate <= 0) {
-            throw new BusinessValidationException("Не найден курс для валюты: " + fromCurrency);
-        }
-        if (toRate == null || toRate <= 0) {
-            throw new BusinessValidationException("Не найден курс для валюты: " + toCurrency);
-        }
-
-        BigDecimal amountInByn = amount.multiply(BigDecimal.valueOf(fromRate));
-        return amountInByn.divide(BigDecimal.valueOf(toRate), 4, RoundingMode.HALF_UP);
     }
 
     private void applyDeltaToAccount(Account account, BigDecimal delta) {
@@ -491,70 +408,50 @@ public class OperationServiceImpl implements OperationService {
         return operation;
     }
 
-    private Operation buildTransferLeg(
-            OperationCreateRequest request,
-            Account account,
-            String recipient,
-            BigDecimal amount,
-            OperationType type,
-            String currency,
-            Integer relatedAccountId,
-            int transferId,
-            OffsetDateTime operationDate,
-            boolean isPinned,
-            List<Tag> operationTags
-    ) {
-        return Operation.builder()
-                .account(account)
-                .category(null)
-                .amount(amount)
-                .type(type)
-                .currency(currency)
-                .date(operationDate)
-                .comment(request.note())
-                .merchant(request.merchant())
-                .place(request.place())
-                .recipient(recipient)
-                .photoUrl(request.photoUrl())
-                .isPinned(isPinned)
-                .relatedAccountId(relatedAccountId)
-                .transferId(transferId)
-                .tags(new ArrayList<>(operationTags))
-                .build();
-    }
-
     private List<OperationResponse> enrichOperations(List<Operation> operations, Integer userId) {
         Map<Integer, UserCategory> categoryOverrides = loadCategoryOverrides(userId);
         Map<Integer, UserTag> tagOverrides = loadTagOverrides(userId);
-
         return operations.stream()
-                .map(op -> applyUserOverrides(op, operationMapper.toOperationResponse(op), categoryOverrides, tagOverrides))
+                .map(op -> buildEnrichedResponse(op, categoryOverrides, tagOverrides))
                 .toList();
     }
 
     private OperationResponse enrichOperation(Operation operation, Integer userId) {
-        return applyUserOverrides(
-                operation,
-                operationMapper.toOperationResponse(operation),
-                loadCategoryOverrides(userId),
-                loadTagOverrides(userId)
-        );
+        return buildEnrichedResponse(operation, loadCategoryOverrides(userId), loadTagOverrides(userId));
     }
 
-    private Integer decodeCursor(String cursor) {
-        if (cursor == null || cursor.isBlank()) {
-            return null;
-        }
-        try {
-            String decoded = new String(Base64.getDecoder().decode(cursor), StandardCharsets.UTF_8);
-            return Integer.valueOf(decoded);
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Некорректный формат курсора пагинации");
-        }
-    }
+    private OperationResponse buildEnrichedResponse(
+            Operation op,
+            Map<Integer, UserCategory> categoryOverrides,
+            Map<Integer, UserTag> tagOverrides
+    ) {
+        String categoryName = op.getCategory() != null ? op.getCategory().getName() : "Без категории";
+        String categoryIcon = op.getCategory() != null ? op.getCategory().getIcon() : null;
+        String categoryColor = op.getCategory() != null ? op.getCategory().getColor() : null;
 
-    private String encodeCursor(Integer id) {
-        return Base64.getEncoder().encodeToString(id.toString().getBytes(StandardCharsets.UTF_8));
+        if (op.getCategory() != null) {
+            UserCategory override = categoryOverrides.get(op.getCategory().getId());
+            if (override != null && Boolean.TRUE.equals(override.getIsCustomized())) {
+                if (override.getCustomName() != null) {
+                    categoryName = override.getCustomName();
+                }
+                if (override.getCustomIcon() != null) {
+                    categoryIcon = override.getCustomIcon();
+                }
+                if (override.getCustomColor() != null) {
+                    categoryColor = override.getCustomColor();
+                }
+            }
+        }
+
+        List<TagDto> resolvedTags = op.getTags() == null
+                ? List.of()
+                : op.getTags().stream()
+                .filter(Objects::nonNull)
+                .map(tag -> tagMapper.toDto(tag, tag.getId() != null ? tagOverrides.get(tag.getId()) : null))
+                .toList();
+
+        return operationMapper.toOperationResponse(op, categoryName, categoryIcon, categoryColor, resolvedTags);
     }
 
     private Map<Integer, UserCategory> loadCategoryOverrides(Integer userId) {
@@ -565,77 +462,6 @@ public class OperationServiceImpl implements OperationService {
     private Map<Integer, UserTag> loadTagOverrides(Integer userId) {
         return userTagRepository.findAllByUserId(userId).stream()
                 .collect(Collectors.toMap(ut -> ut.getTag().getId(), ut -> ut));
-    }
-
-    private OperationResponse applyUserOverrides(
-            Operation op,
-            OperationResponse base,
-            Map<Integer, UserCategory> categoryOverrides,
-            Map<Integer, UserTag> tagOverrides
-    ) {
-        String categoryName = base.category();
-        String categoryIcon = base.categoryIcon();
-        String categoryColor = base.categoryColor();
-
-        if (op.getCategory() != null) {
-            UserCategory catOverride = categoryOverrides.get(op.getCategory().getId());
-            if (catOverride != null && Boolean.TRUE.equals(catOverride.getIsCustomized())) {
-                if (catOverride.getCustomName() != null) {
-                    categoryName = catOverride.getCustomName();
-                }
-                if (catOverride.getCustomIcon() != null) {
-                    categoryIcon = catOverride.getCustomIcon();
-                }
-                if (catOverride.getCustomColor() != null) {
-                    categoryColor = catOverride.getCustomColor();
-                }
-            }
-        }
-
-        List<TagDto> resolvedTags = base.tags() == null
-                ? List.of()
-                : base.tags().stream()
-                .map(tagDto -> {
-                    if (tagDto.id() == null) {
-                        return tagDto;
-                    }
-                    UserTag tagOverride = tagOverrides.get(tagDto.id().intValue());
-                    if (tagOverride == null || !Boolean.TRUE.equals(tagOverride.getIsCustomized())) {
-                        return tagDto;
-                    }
-                    return new TagDto(
-                            tagDto.id(),
-                            tagOverride.getCustomName() != null ? tagOverride.getCustomName() : tagDto.name(),
-                            tagOverride.getCustomColor() != null ? tagOverride.getCustomColor() : tagDto.color(),
-                            tagOverride.getCustomIcon() != null ? tagOverride.getCustomIcon() : tagDto.icon()
-                    );
-                })
-                .toList();
-
-        return new OperationResponse(
-                base.id(),
-                base.type(),
-                base.amount(),
-                base.currency(),
-                categoryName,
-                categoryIcon,
-                categoryColor,
-                base.categoryId(),
-                base.account(),
-                base.accountId(),
-                base.accountIcon(),
-                base.accountColor(),
-                base.relatedAccountId(),
-                base.transferId(),
-                base.note(),
-                base.recipient(),
-                base.place(),
-                resolvedTags,
-                base.merchant(),
-                base.photoUrl(),
-                base.isPinned(),
-                base.dateTime()
-        );
     }
 
     private Category resolveAccessibleCategory(Integer categoryId, Integer userId) {
@@ -660,12 +486,10 @@ public class OperationServiceImpl implements OperationService {
             return new ArrayList<>();
         }
 
-        Set<Integer> uniqueTagIds = new LinkedHashSet<>();
-        for (Long rawId : tagIds) {
-            if (rawId != null) {
-                uniqueTagIds.add(rawId.intValue());
-            }
-        }
+        Set<Integer> uniqueTagIds = tagIds.stream()
+                .filter(Objects::nonNull)
+                .map(Long::intValue)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
 
         if (uniqueTagIds.isEmpty()) {
             return new ArrayList<>();
@@ -676,26 +500,46 @@ public class OperationServiceImpl implements OperationService {
             throw new ResourceNotFoundException("Одна или несколько указанных меток не найдены");
         }
 
-        List<Tag> result = new ArrayList<>(foundTags.size());
+        Map<Integer, UserTag> tagOverrides = loadTagOverrides(userId);
+
         for (Tag tag : foundTags) {
             boolean isSystem = Boolean.TRUE.equals(tag.getIsSystem()) && tag.getUser() == null;
-            boolean isOwner = tag.getUser() != null && tag.getUser().getId().equals(userId);
+            boolean isOwner = tag.getUser() != null
+                    && userId != null
+                    && userId.equals(tag.getUser().getId());
 
             if (!isSystem && !isOwner) {
                 throw new ForbiddenAccessException("У вас нет прав для использования метки с ID " + tag.getId());
             }
 
-            UserTag override = userTagRepository.findByUserIdAndTagId(userId, tag.getId()).orElse(null);
+            UserTag override = tag.getId() != null ? tagOverrides.get(tag.getId()) : null;
             boolean isHidden = (override != null && Boolean.TRUE.equals(override.getIsHidden()))
                     || Boolean.TRUE.equals(tag.getIsArchived());
 
             if (isHidden) {
                 throw new BusinessValidationException("Нельзя привязать операцию к скрытой метке с ID " + tag.getId());
             }
-
-            result.add(tag);
         }
 
-        return result;
+        return foundTags;
+    }
+
+    private Map<Integer, Account> lockOwnedAccounts(Set<Integer> accountIds, Integer userId) {
+        List<Integer> sortedIds = accountIds.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .sorted()
+                .toList();
+
+        Map<Integer, Account> lockedById = new LinkedHashMap<>();
+        for (Integer accId : sortedIds) {
+            Account account = accountRepository.findByIdForUpdate(accId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Счет с ID " + accId + " не найден"));
+            if (account.getUser() == null || !account.getUser().getId().equals(userId)) {
+                throw new ForbiddenAccessException("Счет не принадлежит текущему пользователю");
+            }
+            lockedById.put(accId, account);
+        }
+        return lockedById;
     }
 }
