@@ -1,42 +1,96 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Stack, useRouter } from 'expo-router';
 import {
   KeyboardAvoidingView,
-  ImageBackground,
   Platform,
   Pressable,
   SafeAreaView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
+  useColorScheme,
+  useWindowDimensions,
   View,
 } from 'react-native';
+import {
+  cancelAnimation,
+  Easing,
+  useDerivedValue,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
+import {
+  Canvas,
+  LinearGradient,
+  RadialGradient,
+  Rect,
+  vec,
+} from '@shopify/react-native-skia';
 import { SECURITY_CODE_LENGTH, sanitizeSecurityCode } from '../../../src/securityCode';
 import { useSecurityCode } from '../../../src/security/SecurityCodeProvider';
+import { buildFlowlyPalette } from '../../../src/theme/backdropPalette';
+import { useThemeColors } from '../../../src/theme/useThemeColors';
 
-const PRIMARY = '#2BAF8C';
-const TEXT_MAIN = '#111827';
-const TEXT_SECONDARY = '#6B7280';
-const BORDER = '#E5E7EB';
-const BACKGROUND = require('../../../assets/backgroundd.gif');
+const LINEAR_POSITIONS = [0, 0.26, 0.54, 0.8, 1];
+const RADIAL_POSITIONS = [0, 0.48, 1];
 
 export default function SecurityCodeScreen() {
   const router = useRouter();
+  const colorScheme = useColorScheme();
+  const colors = useThemeColors();
+  const palette = useMemo(() => buildFlowlyPalette('emerald', colorScheme), [colorScheme]);
+  const { width, height } = useWindowDimensions();
+
   const [code, setCode] = useState('');
   const [saving, setSaving] = useState(false);
   const inputRef = useRef<any>(null);
   const { enable } = useSecurityCode();
+
+  const driftA = useSharedValue(0);
+  const driftB = useSharedValue(0);
+
+  useEffect(() => {
+    driftA.value = withRepeat(
+      withTiming(1, { duration: 7500, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true,
+    );
+    driftB.value = withRepeat(
+      withTiming(1, { duration: 10500, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true,
+    );
+    return () => {
+      cancelAnimation(driftA);
+      cancelAnimation(driftB);
+    };
+  }, [driftA, driftB]);
+
+  const glow1Center = useDerivedValue(() =>
+    vec(width * 0.84 - driftA.value * 36, -height * 0.03 + driftB.value * 26),
+  );
+  const glow2Center = useDerivedValue(() =>
+    vec(width * 0.1 + driftB.value * 34, height * 0.16 - driftA.value * 22),
+  );
+  const glow3Center = useDerivedValue(() =>
+    vec(
+      width * 0.5 + (driftA.value - 0.5) * 44,
+      height * 0.34 + (driftB.value - 0.5) * 28,
+    ),
+  );
 
   useEffect(() => {
     const timer = setTimeout(() => inputRef.current?.focus(), 200);
     return () => clearTimeout(timer);
   }, []);
 
-  const handleChange = (value: string) => {
+  const handleChange = useCallback((value: string) => {
     setCode(sanitizeSecurityCode(value));
-  };
+  }, []);
 
-  const handleComplete = async () => {
+  const handleComplete = useCallback(async () => {
     if (code.length !== SECURITY_CODE_LENGTH || saving) return;
     setSaving(true);
     try {
@@ -45,16 +99,61 @@ export default function SecurityCodeScreen() {
     } finally {
       setSaving(false);
     }
-  };
+  }, [code, enable, router, saving]);
+
+  const cardBg = colors.isDark
+    ? 'rgba(21, 26, 32, 0.92)'
+    : 'rgba(255, 255, 255, 0.94)';
+  const cellBg = colors.isDark ? colors.elevatedSurface : '#FFFFFF';
+  const primaryColor = colors.income;
 
   return (
-    <ImageBackground source={BACKGROUND} resizeMode="cover" style={styles.bg}>
+    <View style={[styles.bg, { backgroundColor: palette.baseSurface }]}>
+      <StatusBar barStyle={palette.isDark ? 'light-content' : 'dark-content'} />
+
+      <Canvas pointerEvents="none" style={[StyleSheet.absoluteFill, { width, height }]}>
+        <Rect x={0} y={0} width={width} height={height}>
+          <LinearGradient
+            start={vec(width * 0.12, 0)}
+            end={vec(width * 0.88, height)}
+            colors={palette.gradientColors}
+            positions={LINEAR_POSITIONS}
+          />
+        </Rect>
+        <Rect x={0} y={0} width={width} height={height}>
+          <RadialGradient
+            c={glow1Center}
+            r={width * 1.12}
+            colors={palette.glowPrimaryColors}
+            positions={RADIAL_POSITIONS}
+          />
+        </Rect>
+        <Rect x={0} y={0} width={width} height={height}>
+          <RadialGradient
+            c={glow2Center}
+            r={width * 0.92}
+            colors={palette.glowSecondaryColors}
+            positions={RADIAL_POSITIONS}
+          />
+        </Rect>
+        <Rect x={0} y={0} width={width} height={height}>
+          <RadialGradient
+            c={glow3Center}
+            r={width * 0.78}
+            colors={palette.glowAccentColors}
+            positions={RADIAL_POSITIONS}
+          />
+        </Rect>
+      </Canvas>
+
       <SafeAreaView style={styles.safe}>
         <Stack.Screen
           options={{
             title: 'Защитный код',
             headerTransparent: true,
             headerShown: true,
+            headerTintColor: palette.heroTextMain,
+            headerTitleStyle: { color: palette.heroTextMain },
           }}
         />
         <KeyboardAvoidingView
@@ -62,9 +161,21 @@ export default function SecurityCodeScreen() {
           style={styles.fill}
         >
           <View style={styles.center}>
-            <View style={styles.card}>
-              <Text style={styles.title}>Введите защитный код</Text>
-              <Text style={styles.subtitle}>
+            <View
+              style={[
+                styles.card,
+                {
+                  backgroundColor: cardBg,
+                  borderColor: colors.border,
+                  shadowOpacity: colors.isDark ? 0 : 0.08,
+                  elevation: colors.isDark ? 0 : 4,
+                },
+              ]}
+            >
+              <Text style={[styles.title, { color: colors.textMain }]}>
+                Введите защитный код
+              </Text>
+              <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
                 Придумайте 4-значный код для блокировки приложения. Держите его в секрете.
               </Text>
 
@@ -74,8 +185,26 @@ export default function SecurityCodeScreen() {
                     const filled = idx < code.length;
                     const active = idx === code.length;
                     return (
-                      <View key={idx} style={[styles.codeCell, active && styles.codeCellActive]}>
-                        <Text style={styles.codeCellText}>{filled ? '•' : ''}</Text>
+                      <View
+                        key={idx}
+                        style={[
+                          styles.codeCell,
+                          {
+                            backgroundColor: cellBg,
+                            borderColor: active ? primaryColor : colors.border,
+                          },
+                          active && {
+                            shadowColor: primaryColor,
+                            shadowOpacity: colors.isDark ? 0 : 0.14,
+                            shadowRadius: 6,
+                            shadowOffset: { width: 0, height: 2 },
+                            elevation: colors.isDark ? 0 : 3,
+                          },
+                        ]}
+                      >
+                        <Text style={[styles.codeCellText, { color: colors.textMain }]}>
+                          {filled ? '•' : ''}
+                        </Text>
                       </View>
                     );
                   })}
@@ -87,6 +216,7 @@ export default function SecurityCodeScreen() {
                 value={code}
                 onChangeText={handleChange}
                 keyboardType="number-pad"
+                keyboardAppearance={colors.isDark ? 'dark' : 'light'}
                 textContentType="oneTimeCode"
                 returnKeyType="done"
                 maxLength={SECURITY_CODE_LENGTH}
@@ -100,6 +230,7 @@ export default function SecurityCodeScreen() {
                 <Pressable
                   style={[
                     styles.buttonPrimary,
+                    { backgroundColor: primaryColor },
                     (code.length !== SECURITY_CODE_LENGTH || saving) && styles.buttonDisabled,
                   ]}
                   disabled={code.length !== SECURITY_CODE_LENGTH || saving}
@@ -110,14 +241,16 @@ export default function SecurityCodeScreen() {
                   </Text>
                 </Pressable>
                 <Pressable style={styles.buttonGhost} onPress={() => router.back()}>
-                  <Text style={styles.buttonGhostText}>Отмена</Text>
+                  <Text style={[styles.buttonGhostText, { color: colors.textMain }]}>
+                    Отмена
+                  </Text>
                 </Pressable>
               </View>
             </View>
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
-    </ImageBackground>
+    </View>
   );
 }
 
@@ -140,24 +273,20 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 380,
-    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderWidth: StyleSheet.hairlineWidth,
     padding: 20,
     borderRadius: 18,
     gap: 16,
     shadowColor: '#000',
-    shadowOpacity: 0.08,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
   },
   title: {
     fontSize: 22,
     fontWeight: '700',
-    color: TEXT_MAIN,
   },
   subtitle: {
     fontSize: 15,
-    color: TEXT_SECONDARY,
     lineHeight: 22,
   },
   codeWrap: {
@@ -173,23 +302,12 @@ const styles = StyleSheet.create({
     height: 62,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: BORDER,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-  codeCellActive: {
-    borderColor: PRIMARY,
-    shadowColor: PRIMARY,
-    shadowOpacity: 0.14,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
   },
   codeCellText: {
     fontSize: 26,
     fontWeight: '700',
-    color: TEXT_MAIN,
   },
   hiddenInput: {
     position: 'absolute',
@@ -203,7 +321,6 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   buttonPrimary: {
-    backgroundColor: PRIMARY,
     paddingVertical: 14,
     borderRadius: 14,
     alignItems: 'center',
@@ -221,7 +338,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   buttonGhostText: {
-    color: TEXT_MAIN,
     fontSize: 15,
     fontWeight: '600',
   },

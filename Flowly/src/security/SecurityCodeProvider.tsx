@@ -12,17 +12,34 @@ import React, {
 import {
   AppState,
   AppStateStatus,
+  DeviceEventEmitter,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   SafeAreaView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
+  useColorScheme,
+  useWindowDimensions,
   View,
-  ImageBackground,
-  DeviceEventEmitter,
 } from 'react-native';
+import {
+  cancelAnimation,
+  Easing,
+  useDerivedValue,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
+import {
+  Canvas,
+  LinearGradient,
+  RadialGradient,
+  Rect,
+  vec,
+} from '@shopify/react-native-skia';
 import * as LocalAuthentication from 'expo-local-authentication';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import AppIconSvg from '../../assets/app_icon.svg';
@@ -34,8 +51,7 @@ import {
   SECURITY_IDLE_TIMEOUT_MS,
   sanitizeSecurityCode,
 } from '../securityCode';
-
-const BACKGROUND = require('../../assets/backgroundd.gif');
+import { buildFlowlyPalette } from '../theme/backdropPalette';
 
 type SecurityCodeContextValue = {
   enabled: boolean;
@@ -62,10 +78,8 @@ export const useSecurityCode = (): SecurityCodeContextValue => {
   return ctx;
 };
 
-const PRIMARY = '#2BAF8C';
-const TEXT_MAIN = '#111827';
-const TEXT_SECONDARY = '#6B7280';
-const BORDER = '#E5E7EB';
+const LINEAR_POSITIONS = [0, 0.26, 0.54, 0.8, 1];
+const RADIAL_POSITIONS = [0, 0.48, 1];
 
 export const SecurityCodeProvider = ({ children }: { children: ReactNode }) => {
   const [storedCode, setStoredCode] = useState<string | null>(null);
@@ -94,8 +108,6 @@ export const SecurityCodeProvider = ({ children }: { children: ReactNode }) => {
       const hasType =
         types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT) ||
         (faceConst ? types.includes(faceConst) : false);
-      // На некоторых симуляторах supportedAuthenticationTypesAsync может отдавать пустой массив,
-      // но hw/enrolled будут true — считаем это доступной биометрией, иначе блокируем переключатель зря.
       const available = hw && enrolled && (hasType || types.length === 0);
       if (!available) {
         let reason = 'Биометрия недоступна';
@@ -228,46 +240,49 @@ export const SecurityCodeProvider = ({ children }: { children: ReactNode }) => {
         console.warn('Security biometry persist error', e);
       }
     },
-    [biometricsAvailable],
+    [evaluateBiometricsAvailability],
   );
 
-  const tryBiometricUnlock = useCallback(async (manual = false) => {
-    if (!biometricsEnabled || !biometricsAvailable || !locked || biometricBusy) return false;
-    setBiometricBusy(true);
-    try {
-      const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Вход по биометрии',
-        fallbackLabel: 'Использовать код',
-        cancelLabel: 'Отмена',
-        disableDeviceFallback: true,
-        requireConfirmation: false,
-      });
-      if (result.success) {
-        setLocked(false);
-        lastInteractionRef.current = Date.now();
-        scheduleInactivityLock();
-        return true;
+  const tryBiometricUnlock = useCallback(
+    async (manual = false) => {
+      if (!biometricsEnabled || !biometricsAvailable || !locked || biometricBusy) return false;
+      setBiometricBusy(true);
+      try {
+        const result = await LocalAuthentication.authenticateAsync({
+          promptMessage: 'Вход по биометрии',
+          fallbackLabel: 'Использовать код',
+          cancelLabel: 'Отмена',
+          disableDeviceFallback: true,
+          requireConfirmation: false,
+        });
+        if (result.success) {
+          setLocked(false);
+          lastInteractionRef.current = Date.now();
+          scheduleInactivityLock();
+          return true;
+        }
+        if (!manual) {
+          autoBiometricAllowedRef.current = false;
+        }
+        return false;
+      } catch (e) {
+        console.warn('Biometric unlock error', e);
+        if (!manual) {
+          autoBiometricAllowedRef.current = false;
+        }
+        return false;
+      } finally {
+        setBiometricBusy(false);
       }
-      if (!manual) {
-        autoBiometricAllowedRef.current = false;
-      }
-      return false;
-    } catch (e) {
-      console.warn('Biometric unlock error', e);
-      if (!manual) {
-        autoBiometricAllowedRef.current = false;
-      }
-      return false;
-    } finally {
-      setBiometricBusy(false);
-    }
-  }, [
-    biometricBusy,
-    biometricsAvailable,
-    biometricsEnabled,
-    locked,
-    scheduleInactivityLock,
-  ]);
+    },
+    [
+      biometricBusy,
+      biometricsAvailable,
+      biometricsEnabled,
+      locked,
+      scheduleInactivityLock,
+    ],
+  );
 
   useEffect(() => {
     biometricAttemptedRef.current = false;
@@ -304,20 +319,19 @@ export const SecurityCodeProvider = ({ children }: { children: ReactNode }) => {
       const handleActive = async () => {
         const available = await evaluateBiometricsAvailability();
         if (next !== 'active') {
-          // уходим в фон/неактивное состояние — сбрасываем таймер и отмечаем момент
           lastInteractionRef.current = Date.now();
           backgroundedAtRef.current = Date.now();
           clearTimer();
           return;
         }
-        // вернулись в active
         const backgroundDuration = backgroundedAtRef.current
           ? Date.now() - backgroundedAtRef.current
           : 0;
         backgroundedAtRef.current = null;
         const idleDuration = Date.now() - lastInteractionRef.current;
         const shouldLock =
-          idleDuration >= SECURITY_IDLE_TIMEOUT_MS || backgroundDuration >= SECURITY_IDLE_TIMEOUT_MS;
+          idleDuration >= SECURITY_IDLE_TIMEOUT_MS ||
+          backgroundDuration >= SECURITY_IDLE_TIMEOUT_MS;
         if (shouldLock) {
           setLocked(true);
           clearTimer();
@@ -327,7 +341,13 @@ export const SecurityCodeProvider = ({ children }: { children: ReactNode }) => {
           lastInteractionRef.current = Date.now();
           scheduleInactivityLock();
         }
-        if (locked && available && biometricsEnabled && !biometricBusy && autoBiometricAllowedRef.current) {
+        if (
+          locked &&
+          available &&
+          biometricsEnabled &&
+          !biometricBusy &&
+          autoBiometricAllowedRef.current
+        ) {
           biometricAttemptedRef.current = false;
           void tryBiometricUnlock();
         }
@@ -412,33 +432,69 @@ const LockOverlay = ({
 }: {
   onUnlock: (code: string) => Promise<boolean>;
   biometricsEnabled: boolean;
-  onBiometricUnlock: () => Promise<boolean>;
+  onBiometricUnlock: (manual?: boolean) => Promise<boolean>;
   biometricBusy: boolean;
 }) => {
+  const colorScheme = useColorScheme();
+  const { width, height } = useWindowDimensions();
+  const palette = useMemo(() => buildFlowlyPalette('emerald', colorScheme), [colorScheme]);
+
   const [code, setCode] = useState('');
   const [error, setError] = useState(false);
-  // Используем any, чтобы избежать конфликтов типизации TextInputInstance в новой версии RN
   const inputRef = useRef<any>(null);
+
+  const driftA = useSharedValue(0);
+  const driftB = useSharedValue(0);
+
+  useEffect(() => {
+    driftA.value = withRepeat(
+      withTiming(1, { duration: 7500, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true,
+    );
+    driftB.value = withRepeat(
+      withTiming(1, { duration: 10500, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true,
+    );
+    return () => {
+      cancelAnimation(driftA);
+      cancelAnimation(driftB);
+    };
+  }, [driftA, driftB]);
+
+  const glow1Center = useDerivedValue(() =>
+    vec(width * 0.84 - driftA.value * 36, -height * 0.03 + driftB.value * 26),
+  );
+  const glow2Center = useDerivedValue(() =>
+    vec(width * 0.1 + driftB.value * 34, height * 0.16 - driftA.value * 22),
+  );
+  const glow3Center = useDerivedValue(() =>
+    vec(
+      width * 0.5 + (driftA.value - 0.5) * 44,
+      height * 0.34 + (driftB.value - 0.5) * 28,
+    ),
+  );
 
   useEffect(() => {
     const timer = setTimeout(() => inputRef.current?.focus(), 200);
     return () => clearTimeout(timer);
   }, []);
 
-  const handleChange = (value: string) => {
+  const handleChange = useCallback((value: string) => {
     setError(false);
     setCode(sanitizeSecurityCode(value));
-  };
+  }, []);
 
-  const handleDigit = (digit: string) => {
+  const handleDigit = useCallback((digit: string) => {
     setError(false);
     setCode((prev) => sanitizeSecurityCode(prev + digit));
-  };
+  }, []);
 
-  const handleBackspace = () => {
+  const handleBackspace = useCallback(() => {
     setError(false);
     setCode((prev) => prev.slice(0, -1));
-  };
+  }, []);
 
   const handleKeyPress = useCallback(
     ({ nativeEvent }: { nativeEvent: { key: string } }) => {
@@ -470,8 +526,16 @@ const LockOverlay = ({
   }, [code, handleSubmit]);
 
   const handleBiometric = useCallback(async () => {
-    await onBiometricUnlock();
+    await onBiometricUnlock(true);
   }, [onBiometricUnlock]);
+
+  const errorColor = palette.isDark ? '#F87171' : '#EF4444';
+  const keyPressedBg = palette.isDark
+    ? 'rgba(255, 255, 255, 0.18)'
+    : 'rgba(255, 255, 255, 0.94)';
+  const cellActiveBg = palette.isDark
+    ? 'rgba(255, 255, 255, 0.16)'
+    : 'rgba(255, 255, 255, 0.92)';
 
   const keypad = [
     ['1', '2', '3'],
@@ -481,8 +545,44 @@ const LockOverlay = ({
   ];
 
   return (
-    <ImageBackground source={BACKGROUND} resizeMode="cover" style={styles.overlay}>
-      <View style={styles.scrim} />
+    <View style={[styles.overlay, { backgroundColor: palette.baseSurface }]}>
+      <StatusBar barStyle={palette.isDark ? 'light-content' : 'dark-content'} />
+
+      <Canvas pointerEvents="none" style={[StyleSheet.absoluteFill, { width, height }]}>
+        <Rect x={0} y={0} width={width} height={height}>
+          <LinearGradient
+            start={vec(width * 0.12, 0)}
+            end={vec(width * 0.88, height)}
+            colors={palette.gradientColors}
+            positions={LINEAR_POSITIONS}
+          />
+        </Rect>
+        <Rect x={0} y={0} width={width} height={height}>
+          <RadialGradient
+            c={glow1Center}
+            r={width * 1.12}
+            colors={palette.glowPrimaryColors}
+            positions={RADIAL_POSITIONS}
+          />
+        </Rect>
+        <Rect x={0} y={0} width={width} height={height}>
+          <RadialGradient
+            c={glow2Center}
+            r={width * 0.92}
+            colors={palette.glowSecondaryColors}
+            positions={RADIAL_POSITIONS}
+          />
+        </Rect>
+        <Rect x={0} y={0} width={width} height={height}>
+          <RadialGradient
+            c={glow3Center}
+            r={width * 0.78}
+            colors={palette.glowAccentColors}
+            positions={RADIAL_POSITIONS}
+          />
+        </Rect>
+      </Canvas>
+
       <SafeAreaView style={styles.fill}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -490,17 +590,31 @@ const LockOverlay = ({
         >
           <View style={styles.lockCenter}>
             <View style={styles.headerRow}>
-              <View style={styles.appIcon}>
+              <View
+                style={[
+                  styles.appIcon,
+                  {
+                    backgroundColor: palette.glassSurface,
+                    borderColor: palette.glassBorder,
+                  },
+                ]}
+              >
                 <AppIconSvg width={36} height={36} />
               </View>
               <View>
-                <Text style={styles.greeting}>Добрый день, Илья!</Text>
-                <Text style={styles.greetingName}>Flowly</Text>
+                <Text style={[styles.greeting, { color: palette.heroTextMain }]}>
+                  Добрый день, Илья!
+                </Text>
+                <Text style={[styles.greetingName, { color: palette.heroTextSecondary }]}>
+                  Flowly
+                </Text>
               </View>
             </View>
 
-            <View style={{ width: '100%', gap: 10, marginTop: 18 }}>
-              <Text style={styles.prompt}>Введите пароль</Text>
+            <View style={styles.codeSection}>
+              <Text style={[styles.prompt, { color: palette.heroTextSecondary }]}>
+                Введите пароль
+              </Text>
               <Pressable style={styles.codeWrap} onPress={() => inputRef.current?.focus()}>
                 <View style={styles.codeRow}>
                   {Array.from({ length: SECURITY_CODE_LENGTH }).map((_, idx) => {
@@ -511,11 +625,21 @@ const LockOverlay = ({
                         key={idx}
                         style={[
                           styles.codeCell,
-                          active && styles.codeCellActive,
-                          error && styles.codeCellError,
+                          {
+                            backgroundColor: active ? cellActiveBg : palette.glassSurface,
+                            borderColor: error
+                              ? errorColor
+                              : active
+                                ? palette.primary
+                                : palette.glassBorder,
+                          },
                         ]}
                       >
-                        <Text style={styles.codeCellText}>{filled ? '•' : ''}</Text>
+                        <Text
+                          style={[styles.codeCellText, { color: palette.heroTextMain }]}
+                        >
+                          {filled ? '•' : ''}
+                        </Text>
                       </View>
                     );
                   })}
@@ -550,15 +674,21 @@ const LockOverlay = ({
                       return (
                         <Pressable
                           key={key}
-                          style={styles.keyBtnWide}
+                          style={({ pressed }) => [
+                            styles.keyBtn,
+                            {
+                              backgroundColor: pressed ? keyPressedBg : palette.glassSurface,
+                              borderColor: palette.glassBorder,
+                            },
+                          ]}
                           onPress={handleBackspace}
                           disabled={code.length === 0}
                         >
                           <Ionicons
                             name="backspace-outline"
                             size={24}
-                            color="#0f172a"
-                            style={{ opacity: code.length === 0 ? 0.4 : 1 }}
+                            color={palette.heroTextMain}
+                            style={{ opacity: code.length === 0 ? 0.35 : 1 }}
                           />
                         </Pressable>
                       );
@@ -567,14 +697,21 @@ const LockOverlay = ({
                       return (
                         <Pressable
                           key={key}
-                          style={[styles.keyBtn, biometricBusy && styles.buttonDisabled]}
-                          onPress={() => handleBiometric()}
+                          style={({ pressed }) => [
+                            styles.keyBtn,
+                            {
+                              backgroundColor: pressed ? keyPressedBg : palette.glassSurface,
+                              borderColor: palette.glassBorder,
+                            },
+                            biometricBusy && styles.buttonDisabled,
+                          ]}
+                          onPress={handleBiometric}
                           disabled={!biometricsEnabled || biometricBusy}
                         >
                           <Ionicons
                             name="scan-outline"
                             size={26}
-                            color="#0f172a"
+                            color={palette.heroTextMain}
                             style={{ opacity: biometricsEnabled ? 1 : 0.35 }}
                           />
                         </Pressable>
@@ -583,11 +720,19 @@ const LockOverlay = ({
                     return (
                       <Pressable
                         key={key}
-                        style={styles.keyBtn}
+                        style={({ pressed }) => [
+                          styles.keyBtn,
+                          {
+                            backgroundColor: pressed ? keyPressedBg : palette.glassSurface,
+                            borderColor: palette.glassBorder,
+                          },
+                        ]}
                         onPress={() => handleDigit(key)}
                         disabled={code.length >= SECURITY_CODE_LENGTH}
                       >
-                        <Text style={styles.keyText}>{key}</Text>
+                        <Text style={[styles.keyText, { color: palette.heroTextMain }]}>
+                          {key}
+                        </Text>
                       </Pressable>
                     );
                   })}
@@ -601,19 +746,21 @@ const LockOverlay = ({
                 onPress={handleBiometric}
                 disabled={biometricBusy}
               >
-                <Text style={styles.biometricText}>
+                <Text style={[styles.biometricText, { color: palette.primary }]}>
                   {biometricBusy ? 'Проверяем...' : 'Войти по Face ID / Touch ID'}
                 </Text>
               </Pressable>
             ) : null}
 
             {error ? (
-              <Text style={styles.errorText}>Неверный код. Попробуйте еще раз.</Text>
+              <Text style={[styles.errorText, { color: errorColor }]}>
+                Неверный код. Попробуйте еще раз.
+              </Text>
             ) : null}
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
-    </ImageBackground>
+    </View>
   );
 };
 
@@ -627,7 +774,6 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     left: 0,
-    backgroundColor: '#F9FAFB',
     zIndex: 99,
   },
   lockCenter: {
@@ -647,23 +793,25 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.85)',
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   greeting: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#f8fafc',
   },
   greetingName: {
     fontSize: 16,
-    color: '#e2e8f0',
+  },
+  codeSection: {
+    width: '100%',
+    gap: 10,
+    marginTop: 18,
   },
   prompt: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#e2e8f0',
   },
   codeWrap: {
     alignItems: 'flex-start',
@@ -675,24 +823,14 @@ const styles = StyleSheet.create({
   codeCell: {
     width: 54,
     height: 54,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.7)',
+    borderRadius: 14,
+    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.25)',
-  },
-  codeCellActive: {
-    borderColor: '#fff',
-    backgroundColor: 'rgba(255,255,255,0.35)',
-  },
-  codeCellError: {
-    borderColor: '#EF4444',
   },
   codeCellText: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#0f172a',
   },
   hiddenInput: {
     position: 'absolute',
@@ -712,23 +850,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   biometricText: {
-    color: '#e2e8f0',
     fontSize: 15,
     fontWeight: '600',
   },
   errorText: {
     marginTop: 6,
-    color: '#EF4444',
     textAlign: 'center',
     fontSize: 14,
-  },
-  scrim: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(5,10,30,0.45)',
   },
   keypad: {
     width: '100%',
@@ -742,23 +870,14 @@ const styles = StyleSheet.create({
   },
   keyBtn: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.65)',
     height: 68,
     borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  keyBtnWide: {
-    flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.65)',
-    height: 68,
-    borderRadius: 18,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   keyText: {
     fontSize: 26,
     fontWeight: '700',
-    color: '#0f172a',
   },
 });

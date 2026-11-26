@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Stack, useNavigation, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -12,6 +13,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import CategoryIcon from '../../../../../src/components/CategoryIcon';
 import { useTransactionDraft } from '../../../../../src/context/_TransactionDraftContext';
 import { apiRequest } from '../../../../../src/api/client';
+import { useThemeColors } from '../../../../../src/theme/useThemeColors';
 
 type IncomeCategoryDto = {
   id: number;
@@ -43,16 +45,12 @@ type CategoryDto = {
   color?: string | null;
 };
 
-const COLORS = {
-  textMain: '#212121',
-  textSecondary: '#757575',
-  purple: '#2BAF8C',
-  border: '#ECEFF1',
-};
+const DEFAULT_ACCENT = '#2BAF8C';
 
 export default function TransactionCategoryScreen() {
   const router = useRouter();
   const navigation = useNavigation();
+  const colors = useThemeColors();
   const { draft, setCategory, setType } = useTransactionDraft();
 
   const [incomeCategories, setIncomeCategories] = useState<IncomeCategoryDto[]>([]);
@@ -62,6 +60,8 @@ export default function TransactionCategoryScreen() {
   const [categoryType, setCategoryType] = useState<'income' | 'expense'>(
     draft.type === 'income' ? 'income' : 'expense',
   );
+
+  const accentColor = colors.income || DEFAULT_ACCENT;
 
   useEffect(() => {
     const load = async () => {
@@ -83,7 +83,6 @@ export default function TransactionCategoryScreen() {
         }
 
         if (Array.isArray(expenseData)) {
-          // Если категории плоские (без иерархии вложенности)
           setExpenseCategories(
             expenseData.map(c => ({
               id: c.id,
@@ -109,8 +108,8 @@ export default function TransactionCategoryScreen() {
     () =>
       normalizedSearch
         ? incomeCategories.filter(cat =>
-            cat.name.toLowerCase().includes(normalizedSearch),
-          )
+          cat.name.toLowerCase().includes(normalizedSearch),
+        )
         : incomeCategories,
     [incomeCategories, normalizedSearch],
   );
@@ -151,15 +150,20 @@ export default function TransactionCategoryScreen() {
 
   useEffect(() => {
     navigation.setOptions({
+      headerTintColor: colors.textMain,
+      headerTitleStyle: { color: colors.textMain },
       headerSearchBarOptions: {
         placeholder: 'Поиск',
         placement: 'stacked',
         hideWhenScrolling: false,
+        textColor: colors.textMain,
+        headerIconColor: colors.textSecondary,
+        hintTextColor: colors.textSecondary,
         onChangeText: ({ nativeEvent }: any) => setSearch(nativeEvent.text),
         onCancelButtonPress: () => setSearch(''),
       },
     });
-  }, [navigation]);
+  }, [navigation, colors.textMain, colors.textSecondary]);
 
   const handleSelect = (
     name: string,
@@ -173,7 +177,8 @@ export default function TransactionCategoryScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.baseSurface }]}>
+      <StatusBar barStyle={colors.isDark ? 'light-content' : 'dark-content'} />
       <Stack.Screen
         options={{
           title: 'Категория',
@@ -183,14 +188,14 @@ export default function TransactionCategoryScreen() {
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={COLORS.purple} />
+          <ActivityIndicator size="large" color={accentColor} />
         </View>
       ) : (
         <Animated.ScrollView
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           contentInsetAdjustmentBehavior="automatic"
-          contentContainerStyle={{ paddingTop: 10, paddingBottom: 20 }}
+          contentContainerStyle={styles.listContent}
         >
           {isIncome ? (
             incomeToShow.map(cat => {
@@ -198,21 +203,23 @@ export default function TransactionCategoryScreen() {
               return (
                 <Animated.View key={cat.id}>
                   <TouchableOpacity
-                    style={styles.sheetItem}
+                    style={[styles.sheetItem, { borderBottomColor: colors.divider }]}
                     activeOpacity={0.7}
                     onPress={() => handleSelect(cat.name, cat.id, cat.icon, cat.color)}
                   >
                     <View style={styles.sheetItemLeft}>
                       <CategoryIcon
                         name={cat.icon || 'wallet'}
-                        color={cat.color || undefined}
+                        color={cat.color || colors.iconPrimary}
                         backgroundColor="transparent"
                         size={30}
                       />
-                      <Text style={styles.sheetItemText}>{cat.name}</Text>
+                      <Text style={[styles.sheetItemText, { color: colors.textMain }]}>
+                        {cat.name}
+                      </Text>
                     </View>
                     {selected ? (
-                      <Ionicons name="checkmark-circle" size={24} color={COLORS.purple} />
+                      <Ionicons name="checkmark-circle" size={24} color={accentColor} />
                     ) : null}
                   </TouchableOpacity>
                 </Animated.View>
@@ -225,21 +232,23 @@ export default function TransactionCategoryScreen() {
               return (
                 <Animated.View key={group.id}>
                   <TouchableOpacity
-                    style={styles.sheetItem}
+                    style={[styles.sheetItem, { borderBottomColor: colors.divider }]}
                     activeOpacity={0.7}
                     onPress={() => handleSelect(group.name, group.id, group.icon, group.color)}
                   >
                     <View style={styles.sheetItemLeft}>
                       <CategoryIcon
                         name={group.icon || 'wallet'}
-                        color={group.color || undefined}
+                        color={group.color || colors.iconPrimary}
                         backgroundColor="transparent"
                         size={30}
                       />
-                      <Text style={styles.sheetItemText}>{group.name}</Text>
+                      <Text style={[styles.sheetItemText, { color: colors.textMain }]}>
+                        {group.name}
+                      </Text>
                     </View>
                     {parentSelected ? (
-                      <Ionicons name="checkmark-circle" size={24} color={COLORS.purple} />
+                      <Ionicons name="checkmark-circle" size={24} color={accentColor} />
                     ) : null}
                   </TouchableOpacity>
 
@@ -249,7 +258,11 @@ export default function TransactionCategoryScreen() {
                       return (
                         <Animated.View key={child.id}>
                           <TouchableOpacity
-                            style={[styles.sheetItem, styles.childItem]}
+                            style={[
+                              styles.sheetItem,
+                              styles.childItem,
+                              { borderBottomColor: colors.divider },
+                            ]}
                             activeOpacity={0.7}
                             onPress={() =>
                               handleSelect(
@@ -264,14 +277,16 @@ export default function TransactionCategoryScreen() {
                             <View style={styles.sheetItemLeft}>
                               <CategoryIcon
                                 name={child.icon || group.icon || 'wallet'}
-                                color={child.color || group.color || undefined}
+                                color={child.color || group.color || colors.iconPrimary}
                                 backgroundColor="transparent"
                                 size={28}
                               />
-                              <Text style={styles.sheetItemText}>{child.name}</Text>
+                              <Text style={[styles.sheetItemText, { color: colors.textMain }]}>
+                                {child.name}
+                              </Text>
                             </View>
                             {selected ? (
-                              <Ionicons name="checkmark-circle" size={24} color={COLORS.purple} />
+                              <Ionicons name="checkmark-circle" size={24} color={accentColor} />
                             ) : null}
                           </TouchableOpacity>
                         </Animated.View>
@@ -290,35 +305,10 @@ export default function TransactionCategoryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    marginBottom: 12,
-  },
-  scrollContent: {
-    paddingTop: 80,
-    paddingBottom: 32,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.textMain,
-  },
-  searchWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: '#F7F7F9',
-    marginBottom: 10,
+  listContent: {
+    paddingTop: 10,
+    paddingBottom: 20,
   },
   center: {
     flex: 1,
@@ -332,7 +322,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: COLORS.border,
   },
   sheetItemLeft: {
     flexDirection: 'row',
@@ -341,14 +330,6 @@ const styles = StyleSheet.create({
   },
   sheetItemText: {
     fontSize: 17,
-    color: COLORS.textMain,
-  },
-  groupTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: COLORS.textSecondary,
-    marginBottom: 6,
-    marginLeft: 6,
   },
   childItem: {
     paddingLeft: 54,

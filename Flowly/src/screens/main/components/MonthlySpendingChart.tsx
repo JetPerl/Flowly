@@ -1,6 +1,8 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Dimensions, LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
 import { CurveType, LineChart } from 'react-native-gifted-charts';
+import { useThemeColors } from '../../../theme/useThemeColors';
+import { SurfaceCard } from '../../../components/SurfaceCard';
 
 type TrendPoint = {
     value: number;
@@ -21,6 +23,21 @@ type MonthlySpendingChartProps = {
     textMainColor?: string;
 };
 
+function toTranslucent(color: string, alpha: number): string {
+    const rgbaMatch = color.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+    if (rgbaMatch) {
+        return `rgba(${rgbaMatch[1]}, ${rgbaMatch[2]}, ${rgbaMatch[3]}, ${alpha})`;
+    }
+    const hex = color.replace('#', '');
+    if (/^[0-9a-fA-F]{6}$/.test(hex)) {
+        const r = parseInt(hex.slice(0, 2), 16);
+        const g = parseInt(hex.slice(2, 4), 16);
+        const b = parseInt(hex.slice(4, 6), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
+    return color;
+}
+
 export const MonthlySpendingChart: React.FC<MonthlySpendingChartProps> = ({
     monthLabel,
     monthStartMs,
@@ -31,11 +48,15 @@ export const MonthlySpendingChart: React.FC<MonthlySpendingChartProps> = ({
     currency,
     formatCurrency,
     primaryColor = '#2BAF8C',
-    textSecondaryColor = '#757575',
-    textMainColor = '#212121',
+    textSecondaryColor,
+    textMainColor,
 }) => {
+    const colors = useThemeColors();
+    const resolvedTextMain = textMainColor ?? colors.textMain;
+    const resolvedTextSecondary = textSecondaryColor ?? colors.textSecondary;
+
     const [chartWidth, setChartWidth] = useState(
-        Math.max(Dimensions.get('window').width - 32, 260),
+        Math.max(Dimensions.get('window').width - 64, 240),
     );
     const [pointerIndex, setPointerIndex] = useState(0);
 
@@ -47,9 +68,17 @@ export const MonthlySpendingChart: React.FC<MonthlySpendingChartProps> = ({
     const rightPadding = 12;
     const innerWidth = Math.max(chartWidth - yAxisWidth - rightPadding, 160);
 
+    const gridColor = colors.isDark
+        ? 'rgba(255, 255, 255, 0.06)'
+        : 'rgba(15, 23, 42, 0.07)';
+
+    const verticalLinesCount = Math.max(labelDays.length - 1, 1);
+    const verticalLinesSpacing = innerWidth / verticalLinesCount;
+
     const spacing = useMemo(() => {
         if (points.length <= 1) return innerWidth;
-        const raw = (innerWidth - initialSpacing - endSpacing) / Math.max(points.length - 1, 1);
+        const raw =
+            (innerWidth - initialSpacing - endSpacing) / Math.max(points.length - 1, 1);
         return Math.max(2, raw);
     }, [endSpacing, initialSpacing, innerWidth, points.length]);
 
@@ -67,8 +96,13 @@ export const MonthlySpendingChart: React.FC<MonthlySpendingChartProps> = ({
     const maxValue = useMemo(() => (peak > 0 ? peak * 1.1 : 10), [peak]);
 
     const xAxisPositions = useMemo(
-        () => labelDays.map(day => initialSpacing + (day - 1) * spacing),
+        () => labelDays.map((day) => initialSpacing + (day - 1) * spacing),
         [initialSpacing, labelDays, spacing],
+    );
+
+    const pointerStripColor = useMemo(
+        () => toTranslucent(primaryColor, colors.isDark ? 0.35 : 0.25),
+        [primaryColor, colors.isDark],
     );
 
     const handleLayout = useCallback(
@@ -81,11 +115,14 @@ export const MonthlySpendingChart: React.FC<MonthlySpendingChartProps> = ({
         [chartWidth],
     );
 
-    const handlePointer = useCallback(({ pointerIndex: idx }: { pointerIndex?: number }) => {
-        if (typeof idx === 'number' && Number.isFinite(idx)) {
-            setPointerIndex(idx);
-        }
-    }, []);
+    const handlePointer = useCallback(
+        ({ pointerIndex: idx }: { pointerIndex?: number }) => {
+            if (typeof idx === 'number' && Number.isFinite(idx)) {
+                setPointerIndex(idx);
+            }
+        },
+        [],
+    );
 
     const renderPointer = useCallback(() => {
         const dotOffsetX = pointerIndex === 0 ? -8 : -1;
@@ -93,11 +130,15 @@ export const MonthlySpendingChart: React.FC<MonthlySpendingChartProps> = ({
             <View
                 style={[
                     styles.pointerDot,
-                    { backgroundColor: primaryColor, transform: [{ translateX: dotOffsetX }] },
+                    {
+                        backgroundColor: primaryColor,
+                        borderColor: colors.isDark ? '#181C26' : '#FFFFFF',
+                        transform: [{ translateX: dotOffsetX }],
+                    },
                 ]}
             />
         );
-    }, [pointerIndex, primaryColor]);
+    }, [pointerIndex, primaryColor, colors.isDark]);
 
     const renderPointerLabel = useCallback(
         (items: any) => {
@@ -126,25 +167,63 @@ export const MonthlySpendingChart: React.FC<MonthlySpendingChartProps> = ({
             const label = day ? `${day} ${shortClean}` : monthLabel;
 
             return (
-                <View style={styles.tooltip}>
-                    <Text style={styles.tooltipLabel}>{label}</Text>
-                    <Text style={styles.tooltipValue}>{formatCurrency(val, true, currency)}</Text>
+                <View
+                    style={[
+                        styles.tooltip,
+                        {
+                            backgroundColor: colors.isDark
+                                ? 'rgba(24, 28, 38, 0.94)'
+                                : colors.elevatedSurface,
+                            borderColor: colors.isDark
+                                ? 'rgba(255, 255, 255, 0.12)'
+                                : colors.border,
+                        },
+                    ]}
+                >
+                    <Text style={[styles.tooltipLabel, { color: colors.textSecondary }]}>
+                        {label}
+                    </Text>
+                    <Text style={[styles.tooltipValue, { color: colors.textMain }]}>
+                        {formatCurrency(val, true, currency)}
+                    </Text>
                 </View>
             );
         },
-        [currency, formatCurrency, monthLabel, monthStartMs],
+        [
+            currency,
+            formatCurrency,
+            monthLabel,
+            monthStartMs,
+            colors.isDark,
+            colors.elevatedSurface,
+            colors.border,
+            colors.textSecondary,
+            colors.textMain,
+        ],
     );
 
     return (
-        <View style={styles.card}>
+        <SurfaceCard style={styles.card} contentStyle={styles.cardContent}>
             <View style={styles.header}>
-                <View>
-                    <Text style={[styles.eyebrow, { color: textSecondaryColor }]}>Расходы за месяц</Text>
-                    <Text style={[styles.title, { color: textMainColor }]}>{monthLabel}</Text>
+                <View style={styles.headerLeft}>
+                    <Text style={[styles.eyebrow, { color: resolvedTextSecondary }]}>
+                        Расходы за месяц
+                    </Text>
+                    <Text
+                        style={[styles.title, { color: resolvedTextMain }]}
+                        numberOfLines={1}
+                    >
+                        {monthLabel}
+                    </Text>
                 </View>
                 <View style={styles.totalBlock}>
-                    <Text style={[styles.totalLabel, { color: textSecondaryColor }]}>Итого</Text>
-                    <Text style={[styles.totalValue, { color: textMainColor }]}>
+                    <Text style={[styles.totalLabel, { color: resolvedTextSecondary }]}>
+                        Итого
+                    </Text>
+                    <Text
+                        style={[styles.totalValue, { color: resolvedTextMain }]}
+                        numberOfLines={1}
+                    >
                         {formatCurrency(total, true, currency)}
                     </Text>
                 </View>
@@ -159,30 +238,38 @@ export const MonthlySpendingChart: React.FC<MonthlySpendingChartProps> = ({
                     curvature={0.22}
                     data={chartData}
                     getPointerProps={handlePointer}
-                    height={220}
+                    height={210}
                     width={innerWidth}
                     initialSpacing={initialSpacing}
                     endSpacing={endSpacing}
                     spacing={spacing}
                     thickness={2.5}
                     color={primaryColor}
-                    startOpacity={0.28}
+                    startOpacity={colors.isDark ? 0.34 : 0.26}
                     endOpacity={0.02}
                     startFillColor={primaryColor}
                     endFillColor={primaryColor}
                     yAxisLabelWidth={yAxisWidth}
-                    yAxisTextStyle={[styles.yAxisText, { color: textSecondaryColor }]}
-                    xAxisColor="#EEF0F4"
-                    yAxisColor="#EEF0F4"
-                    rulesColor="#EEF0F4"
+                    yAxisTextStyle={[styles.yAxisText, { color: resolvedTextSecondary }]}
+                    xAxisColor={gridColor}
+                    xAxisLength={innerWidth}
+                    yAxisColor={gridColor}
+                    rulesColor={gridColor}
+                    rulesLength={innerWidth}
+                    rulesThickness={1}
                     rulesType="solid"
+                    showVerticalLines
+                    verticalLinesColor={gridColor}
+                    verticalLinesThickness={1}
+                    noOfVerticalLines={verticalLinesCount}
+                    verticalLinesSpacing={verticalLinesSpacing}
                     noOfSections={4}
                     maxValue={maxValue}
                     animateOnDataChange
                     disableScroll
                     pointerConfig={{
-                        pointerStripHeight: 220,
-                        pointerStripColor: 'rgba(43,175,140,0.25)',
+                        pointerStripHeight: 210,
+                        pointerStripColor,
                         pointerStripWidth: 2,
                         pointerColor: primaryColor,
                         radius: 5,
@@ -197,10 +284,10 @@ export const MonthlySpendingChart: React.FC<MonthlySpendingChartProps> = ({
                         pointerLabelComponent: renderPointerLabel,
                         pointerComponent: renderPointer,
                     }}
-                    xAxisLabelTextStyle={[styles.xAxisText, { color: textSecondaryColor }]}
+                    xAxisLabelTextStyle={[styles.xAxisText, { color: resolvedTextSecondary }]}
                     yAxisTextNumberOfLines={1}
                     xAxisTextNumberOfLines={1}
-                    formatYLabel={val => {
+                    formatYLabel={(val) => {
                         const num = Number(val);
                         if (!Number.isFinite(num)) return '0';
                         return num.toLocaleString('ru-RU', { maximumFractionDigits: 0 });
@@ -208,15 +295,10 @@ export const MonthlySpendingChart: React.FC<MonthlySpendingChartProps> = ({
                 />
                 <View
                     pointerEvents="none"
-                    style={{
-                        position: 'absolute',
-                        left: yAxisWidth,
-                        width: innerWidth,
-                        bottom: -5,
-                        height: 18,
-                        overflow: 'visible',
-                        zIndex: 2,
-                    }}
+                    style={[
+                        styles.xAxisOverlay,
+                        { left: yAxisWidth, width: innerWidth },
+                    ]}
                 >
                     {labelDays.map((day, idx) => {
                         const x = xAxisPositions[idx] ?? 0;
@@ -226,7 +308,7 @@ export const MonthlySpendingChart: React.FC<MonthlySpendingChartProps> = ({
                                 style={[
                                     styles.xAxisText,
                                     {
-                                        color: textSecondaryColor,
+                                        color: resolvedTextSecondary,
                                         position: 'absolute',
                                         left: x - xLabelHalf,
                                         width: xLabelWidth,
@@ -239,57 +321,104 @@ export const MonthlySpendingChart: React.FC<MonthlySpendingChartProps> = ({
                     })}
                 </View>
             </View>
-        </View>
+        </SurfaceCard>
     );
 };
 
 const styles = StyleSheet.create({
     card: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 20,
-        paddingHorizontal: 14,
-        paddingVertical: 14,
-        marginBottom: 12,
-        shadowColor: '#000',
-        shadowOpacity: 0.06,
-        shadowRadius: 12,
-        shadowOffset: { width: 0, height: 6 },
-        elevation: 4,
+        marginBottom: 14,
+    },
+    cardContent: {
+        paddingHorizontal: 16,
+        paddingTop: 16,
+        paddingBottom: 20,
     },
     header: {
         flexDirection: 'row',
         alignItems: 'flex-start',
         justifyContent: 'space-between',
+        gap: 12,
         marginBottom: 12,
     },
-    eyebrow: { fontSize: 14, fontWeight: '600' },
-    title: { fontSize: 20, fontWeight: '700', marginTop: 4 },
-    totalBlock: { alignItems: 'flex-end' },
-    totalLabel: { fontSize: 13 },
-    totalValue: { fontSize: 22, fontWeight: '700', marginTop: 4 },
-    graph: { marginTop: 4, position: 'relative', overflow: 'visible' },
-    yAxisText: { fontSize: 11, marginLeft: -4 },
-    xAxisText: { fontSize: 11, textAlign: 'center', minWidth: 22 },
+    headerLeft: {
+        flex: 1,
+        minWidth: 0,
+    },
+    eyebrow: {
+        fontSize: 13,
+        lineHeight: 18,
+        fontWeight: '500',
+    },
+    title: {
+        fontSize: 19,
+        lineHeight: 24,
+        fontWeight: '700',
+        marginTop: 3,
+    },
+    totalBlock: {
+        alignItems: 'flex-end',
+        flexShrink: 0,
+    },
+    totalLabel: {
+        fontSize: 13,
+        lineHeight: 18,
+    },
+    totalValue: {
+        fontSize: 21,
+        lineHeight: 26,
+        fontWeight: '700',
+        marginTop: 3,
+        fontVariant: ['tabular-nums'],
+    },
+    graph: {
+        marginTop: 4,
+        position: 'relative',
+        overflow: 'visible',
+    },
+    xAxisOverlay: {
+        position: 'absolute',
+        bottom: -5,
+        height: 18,
+        overflow: 'visible',
+        zIndex: 2,
+    },
+    yAxisText: {
+        fontSize: 11,
+        marginLeft: -4,
+        fontVariant: ['tabular-nums'],
+    },
+    xAxisText: {
+        fontSize: 11,
+        textAlign: 'center',
+        minWidth: 22,
+        fontVariant: ['tabular-nums'],
+    },
     tooltip: {
-        backgroundColor: '#FFFFFF',
         paddingHorizontal: 12,
         paddingVertical: 8,
         borderRadius: 12,
-        borderWidth: 1,
-        borderColor: '#E5E7EB',
+        borderWidth: StyleSheet.hairlineWidth,
         shadowColor: '#000',
-        shadowOpacity: 0.12,
+        shadowOpacity: 0.18,
         shadowRadius: 8,
         shadowOffset: { width: 0, height: 2 },
         elevation: 3,
     },
-    tooltipLabel: { color: '#4B5563', fontSize: 11, opacity: 0.9 },
-    tooltipValue: { color: '#111827', fontSize: 14, fontWeight: '700', marginTop: 2 },
+    tooltipLabel: {
+        fontSize: 11,
+        opacity: 0.9,
+    },
+    tooltipValue: {
+        fontSize: 14,
+        fontWeight: '700',
+        marginTop: 2,
+        fontVariant: ['tabular-nums'],
+    },
     pointerDot: {
         width: 12,
         height: 12,
         borderRadius: 6,
         borderWidth: 2,
-        borderColor: '#FFFFFF',
     },
 });

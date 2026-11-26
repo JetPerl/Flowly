@@ -1,6 +1,6 @@
 import 'react-native-gesture-handler';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   DeviceEventEmitter,
@@ -10,10 +10,13 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
+  useColorScheme,
   View,
 } from 'react-native';
+import { useSharedValue } from 'react-native-reanimated';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter } from 'expo-router';
+import { useThemeColors } from './theme/useThemeColors';
 import {
   apiRequest,
   groupOperationsIntoSections as groupRawOperationsIntoSections,
@@ -37,6 +40,7 @@ import {
   type HistoryItem,
   type HistorySection,
 } from './utils/operationHelpers';
+import { SurfaceCard } from './components/SurfaceCard';
 import {
   convertCurrency,
   formatCurrency,
@@ -45,18 +49,12 @@ import {
   inferCurrencyCodeFromLabel,
 } from './utils/currency';
 import { sanitizeNumericInput } from './utils/formatters';
-
-const COLORS = {
-  bg: '#FFFFFF',
-  textMain: '#212121',
-  textSecondary: '#757575',
-  primary: '#2BAF8C',
-};
+import { buildFlowlyPalette, FLOWLY_PRESET_ORDER } from './theme/backdropPalette';
 
 const DEFAULT_MAIN_CURRENCY = 'BYN';
-const HERO_HEIGHT = 500;
+const DEFAULT_ACCENT_COLOR = '#2BAF8C';
+const HERO_HEIGHT = 1000;
 const REFRESH_OFFSET = Platform.OS === 'ios' ? 64 : 0;
-const GRADIENT_IMAGE = require('../assets/backgroundd.gif');
 
 type Totals = {
   income: number;
@@ -66,6 +64,8 @@ type Totals = {
 
 const MainScreen = () => {
   const router = useRouter();
+  const colorScheme = useColorScheme();
+  const themeColors = useThemeColors();
   const { mainCurrency } = useMainCurrency();
   const MAIN_CURRENCY = (mainCurrency || DEFAULT_MAIN_CURRENCY).toUpperCase();
   const mainCurrencySymbol = getCurrencySymbol(MAIN_CURRENCY);
@@ -82,6 +82,7 @@ const MainScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   const scrollY = useRef(new Animated.Value(0)).current;
+  const slideProgress = useSharedValue(0);
 
   const loadBalance = useCallback(async () => {
     try {
@@ -139,11 +140,11 @@ const MainScreen = () => {
 
           const itemsRaw: HistoryItem[] = Array.isArray(section?.items)
             ? section.items.map((op: any) =>
-              mapApiOperationToHistoryItem(op, accountsById, COLORS.primary),
+              mapApiOperationToHistoryItem(op, accountsById, DEFAULT_ACCENT_COLOR),
             )
             : [];
 
-          const mergedItems = mergeTransferItems(itemsRaw, COLORS.primary);
+          const mergedItems = mergeTransferItems(itemsRaw, DEFAULT_ACCENT_COLOR);
 
           const filteredItems = mergedItems.filter(item => {
             if (accountFilter === null) return true;
@@ -276,6 +277,21 @@ const MainScreen = () => {
     ];
   }, [accountsList, walletBalance, MAIN_CURRENCY]);
 
+  const slidePalettes = useMemo(
+    () =>
+      sliderData.map((slide, idx) => {
+        const fallbackPreset =
+          FLOWLY_PRESET_ORDER[idx % FLOWLY_PRESET_ORDER.length];
+        return buildFlowlyPalette(slide.color || fallbackPreset, colorScheme);
+      }),
+    [sliderData, colorScheme],
+  );
+
+  const palette =
+    slidePalettes[activeSlideIndex] ??
+    slidePalettes[0] ??
+    buildFlowlyPalette('emerald', colorScheme);
+
   const historyTotals = useMemo(() => {
     const perAccount: Record<number, Totals> = {};
     let allIncome = 0;
@@ -299,7 +315,13 @@ const MainScreen = () => {
           MAIN_CURRENCY
         ).toUpperCase();
         const accountId = item.accountId ?? null;
-        const amountInMain = convertCurrency(rawAmount, currency, MAIN_CURRENCY, ratesMap, MAIN_CURRENCY);
+        const amountInMain = convertCurrency(
+          rawAmount,
+          currency,
+          MAIN_CURRENCY,
+          ratesMap,
+          MAIN_CURRENCY,
+        );
 
         if (accountId !== null) {
           if (!perAccount[accountId]) {
@@ -330,7 +352,9 @@ const MainScreen = () => {
     const now = new Date();
     const start = new Date(now.getFullYear(), now.getMonth(), 1);
     const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-    const labelRaw = new Intl.DateTimeFormat('ru-RU', { month: 'long', year: 'numeric' }).format(now);
+    const labelRaw = new Intl.DateTimeFormat('ru-RU', { month: 'long', year: 'numeric' }).format(
+      now,
+    );
     const label = labelRaw.charAt(0).toUpperCase() + labelRaw.slice(1);
     return { startMs: start.getTime(), endMs: end.getTime(), label };
   }, []);
@@ -418,7 +442,7 @@ const MainScreen = () => {
   const accountGroups = useMemo<AccountGroupSummaryItem[]>(() => {
     const descriptors: Record<
       string,
-      { label: string; color: string; icon: string; hint?: string; order: number }
+      { label: string; color: string; icon: AccountGroupSummaryItem['icon']; hint?: string; order: number }
     > = {
       bank: { label: 'Банковские счета', color: '#6BC5D8', icon: 'link-outline', order: 1 },
       cash: { label: 'Наличные', color: '#5A63E7', icon: 'cash-outline', order: 2 },
@@ -429,12 +453,27 @@ const MainScreen = () => {
 
     const groupsMap: Record<string, AccountGroupSummaryItem & { order: number }> = {};
 
-    const normalizeGroup = (value?: string | null): keyof typeof descriptors => {
-      const norm = (value || '').toLowerCase();
-      if (norm === 'cash') return 'cash';
-      if (norm === 'bank') return 'bank';
-      if (norm === 'goal') return 'goal';
-      if (norm === 'crypto') return 'crypto';
+    const normalizeGroup = (value?: unknown): keyof typeof descriptors => {
+      const raw =
+        typeof value === 'string'
+          ? value
+          : typeof value === 'object' && value !== null
+            ? String((value as any).code ?? (value as any).name ?? '')
+            : '';
+      const norm = raw.trim().toLowerCase();
+
+      if (norm === 'cash' || norm.includes('cash')) return 'cash';
+      if (
+        norm === 'bank' ||
+        norm.includes('bank') ||
+        norm.includes('card') ||
+        norm.includes('debit') ||
+        norm.includes('credit')
+      ) {
+        return 'bank';
+      }
+      if (norm === 'goal' || norm.includes('goal') || norm.includes('saving')) return 'goal';
+      if (norm === 'crypto' || norm.includes('crypto')) return 'crypto';
       return 'other';
     };
 
@@ -451,7 +490,14 @@ const MainScreen = () => {
       const rate = getRateToMain(currencyCode, ratesMap, MAIN_CURRENCY);
       const converted = balanceRaw * rate;
 
-      const groupKey = normalizeGroup(acc.account_type || acc.account_group);
+      const groupKey = normalizeGroup(
+        acc.accountType ??
+        acc.accountGroup ??
+        acc.type ??
+        acc.group ??
+        acc.account_type ??
+        acc.account_group,
+      );
       if (!groupsMap[groupKey]) {
         const desc = descriptors[groupKey] || descriptors.other;
         groupsMap[groupKey] = {
@@ -569,7 +615,8 @@ const MainScreen = () => {
         key: 'transfer',
         label: 'Перевод',
         iconName: 'swap-horizontal',
-        onPress: () => router.push({ pathname: '/transactions/new', params: { type: 'transfer' } }),
+        onPress: () =>
+          router.push({ pathname: '/transactions/new', params: { type: 'transfer' } }),
       },
       {
         key: 'requisites',
@@ -589,20 +636,30 @@ const MainScreen = () => {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <View style={styles.safe}>
-        <StatusBar barStyle="dark-content" />
+      <View style={[styles.safe, { backgroundColor: palette.baseSurface }]}>
+        <StatusBar barStyle={palette.isDark ? 'light-content' : 'dark-content'} />
 
         <View style={styles.root}>
+          <HeroParallaxHeader
+            scrollY={scrollY}
+            palettes={slidePalettes}
+            slideProgress={slideProgress}
+            height={HERO_HEIGHT}
+            fadeDistance={880}
+            minOpacity={0.22}
+            animateShimmer
+          />
+
           <Animated.ScrollView
             style={styles.scroll}
-            showsVerticalScrollIndicator={true}
+            showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
             alwaysBounceVertical
             bounces
             overScrollMode="always"
             contentInsetAdjustmentBehavior="never"
             keyboardShouldPersistTaps="handled"
-            scrollEventThrottle={1}
+            scrollEventThrottle={16}
             onScroll={Animated.event(
               [{ nativeEvent: { contentOffset: { y: scrollY } } }],
               { useNativeDriver: true },
@@ -611,35 +668,37 @@ const MainScreen = () => {
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={handleRefresh}
-                tintColor={COLORS.primary}
-                colors={[COLORS.primary]}
+                tintColor={palette.heroTextMain}
+                colors={[palette.primary]}
                 progressViewOffset={REFRESH_OFFSET}
               />
             }
           >
-            <HeroParallaxHeader
-              scrollY={scrollY}
-              imageSource={GRADIENT_IMAGE}
-              height={HERO_HEIGHT}
-            >
+            <View style={styles.heroContent}>
               <BalanceSlider
                 slides={sliderData}
                 activeIndex={activeSlideIndex}
+                slideProgress={slideProgress}
                 onSelectSlide={(idx, accId) => {
                   setActiveSlideIndex(idx);
-                  setActiveAccountId(accId);
+                  startTransition(() => {
+                    setActiveAccountId(accId);
+                  });
                 }}
                 onAddAccountPress={() => router.push('/transactions/new/account-new')}
                 historyTotals={historyTotals}
                 formatCurrency={formatCurrency}
                 getCurrencySymbol={getCurrencySymbol}
-                accentColor={COLORS.primary}
+                palette={palette}
               />
-              <QuickActions actions={quickActions} iconColor={COLORS.primary} />
-            </HeroParallaxHeader>
+              <QuickActions actions={quickActions} />
+            </View>
 
             <View style={styles.contentWrapper}>
-              <View style={styles.historyCard}>
+              <SurfaceCard
+                style={styles.cardSpacing}
+                contentStyle={styles.historyCardContent}
+              >
                 {latestOperations.length > 0 ? (
                   <>
                     {latestOperations.map((item, idx) => (
@@ -649,25 +708,46 @@ const MainScreen = () => {
                         accountsById={accountsById}
                         onPress={openOperationInModal}
                         showDivider={idx < latestOperations.length - 1}
+                        dateDisplay="full"
                       />
                     ))}
                     {latestOperations.length >= 5 ? (
                       <TouchableOpacity
                         activeOpacity={0.7}
-                        style={styles.viewAllButton}
+                        style={[
+                          styles.viewAllButton,
+                          {
+                            borderTopColor: themeColors.isDark
+                              ? 'rgba(255, 255, 255, 0.08)'
+                              : themeColors.divider,
+                          },
+                        ]}
                         onPress={() => router.push('/all-accounts')}
                       >
-                        <Text style={styles.viewAllText}>Еще</Text>
+                        <Text
+                          style={[
+                            styles.viewAllText,
+                            { color: themeColors.actionLink },
+                          ]}
+                        >
+                          Еще
+                        </Text>
                       </TouchableOpacity>
                     ) : null}
                   </>
                 ) : (
                   <View style={styles.emptyRow}>
-                    <Ionicons name="calendar-outline" size={24} color={COLORS.textSecondary} />
-                    <Text style={styles.emptyTitle}>Операции отсутствуют</Text>
+                    <Ionicons
+                      name="calendar-outline"
+                      size={24}
+                      color={palette.textSecondary}
+                    />
+                    <Text style={[styles.emptyTitle, { color: palette.textMain }]}>
+                      Операции отсутствуют
+                    </Text>
                   </View>
                 )}
-              </View>
+              </SurfaceCard>
 
               <MonthlySpendingChart
                 monthLabel={monthMeta.label}
@@ -678,9 +758,9 @@ const MainScreen = () => {
                 labelDays={monthlyExpenseTrend.labelDays}
                 currency={MAIN_CURRENCY}
                 formatCurrency={formatCurrency}
-                primaryColor={COLORS.primary}
-                textSecondaryColor={COLORS.textSecondary}
-                textMainColor={COLORS.textMain}
+                primaryColor={palette.primary}
+                textSecondaryColor={palette.textSecondary}
+                textMainColor={palette.textMain}
               />
 
               <AccountGroupsSummary
@@ -695,7 +775,7 @@ const MainScreen = () => {
 
           <TouchableOpacity
             activeOpacity={0.85}
-            style={styles.fab}
+            style={[styles.fab, { backgroundColor: palette.primary }]}
             onPress={() => router.push('/transactions/new')}
           >
             <Text style={styles.fabPlus}>＋</Text>
@@ -709,7 +789,6 @@ const MainScreen = () => {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: COLORS.bg,
   },
   root: {
     flex: 1,
@@ -720,46 +799,46 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 0,
     paddingBottom: 84,
   },
+  heroContent: {
+    paddingTop: 120,
+    paddingBottom: 28,
+  },
   contentWrapper: {
+    paddingHorizontal: 16,
     marginTop: -24,
     paddingTop: 12,
     paddingBottom: 24,
   },
-  historyCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    paddingHorizontal: 4,
-    paddingVertical: 10,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 4,
+  cardSpacing: {
+    marginBottom: 14,
+  },
+  historyCardContent: {
+    paddingVertical: 6,
   },
   emptyRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
   },
   emptyTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.textMain,
   },
   viewAllButton: {
-    paddingVertical: 12,
+    marginHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
   },
   viewAllText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
-    color: '#1E6DFF',
   },
   fab: {
     position: 'absolute',
@@ -769,7 +848,6 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: COLORS.primary,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',

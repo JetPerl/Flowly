@@ -6,12 +6,14 @@ import {
   ScrollView,
   TouchableOpacity,
   DeviceEventEmitter,
+  StatusBar,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useMainCurrency } from './currency/CurrencyContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Octicons from '@expo/vector-icons/Octicons';
+import { useThemeColors } from './theme/useThemeColors';
 
 type Currency = {
   code: string;
@@ -75,15 +77,16 @@ const BASE_CURRENCIES: Currency[] = [
   { code: 'HRK', name: 'Хорватская куна', symbol: 'kn' },
   { code: 'XOF', name: 'Западноафриканский франк CFA', symbol: 'CFA' },
 ];
-const PRIMARY_COLOR = '#2BAF8C';
+
+const FAVORITES_KEY = 'flowly:currencyFavorites';
 
 const CurrencyListScreen = () => {
   const router = useRouter();
+  const colors = useThemeColors();
   const { mainCurrency, setMainCurrency } = useMainCurrency();
   const [query, setQuery] = useState('');
   const [selectedCode, setSelectedCode] = useState(mainCurrency || 'USD');
   const [favorites, setFavorites] = useState<Set<string>>(() => new Set(['EUR', 'USD']));
-  const FAVORITES_KEY = 'flowly:currencyFavorites';
 
   useEffect(() => {
     const sub = DeviceEventEmitter.addListener('currency-search', (text: string) => {
@@ -115,7 +118,7 @@ const CurrencyListScreen = () => {
     return () => {
       cancelled = true;
     };
-  }, [FAVORITES_KEY]);
+  }, []);
 
   // Persist favorites when changed
   useEffect(() => {
@@ -127,7 +130,7 @@ const CurrencyListScreen = () => {
       }
     };
     save();
-  }, [favorites, FAVORITES_KEY]);
+  }, [favorites]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -162,14 +165,24 @@ const CurrencyListScreen = () => {
     });
   };
 
-  const renderCurrencyRow = (item: Currency) => {
+  const starInactiveColor = colors.isDark ? 'rgba(255, 255, 255, 0.25)' : '#c9ced6';
+  const accentColor = colors.income;
+
+  const renderCurrencyRow = (item: Currency, index: number, list: Currency[]) => {
     const isFavorite = favorites.has(item.code);
     const isSelected = selectedCode === item.code;
+    const isLast = index === list.length - 1;
 
     return (
       <TouchableOpacity
         key={item.code}
-        style={styles.row}
+        style={[
+          styles.row,
+          {
+            borderBottomColor: colors.divider,
+            borderBottomWidth: isLast ? 0 : StyleSheet.hairlineWidth,
+          },
+        ]}
         activeOpacity={0.8}
         onPress={() => {
           setSelectedCode(item.code);
@@ -185,17 +198,17 @@ const CurrencyListScreen = () => {
           <Octicons
             name={isFavorite ? 'star-fill' : 'star'}
             size={20}
-            style={[styles.star, isFavorite && styles.starActive]}
+            color={isFavorite ? accentColor : starInactiveColor}
           />
         </TouchableOpacity>
-        <Text style={styles.code}>{item.code}</Text>
+        <Text style={[styles.code, { color: colors.textSecondary }]}>{item.code}</Text>
         <View style={styles.nameWrapper}>
-          <Text style={styles.name}>
+          <Text style={[styles.name, { color: colors.textMain }]}>
             {item.name} ({item.symbol})
           </Text>
         </View>
         {isSelected ? (
-          <Ionicons name="checkmark-circle-sharp" size={24} color={PRIMARY_COLOR} />
+          <Ionicons name="checkmark-circle-sharp" size={24} color={accentColor} />
         ) : (
           <View style={styles.checkmarkPlaceholder} />
         )}
@@ -203,43 +216,61 @@ const CurrencyListScreen = () => {
     );
   };
 
+  const sectionCardThemeStyle = {
+    backgroundColor: colors.cardSurface,
+    borderColor: colors.border,
+  };
+
   return (
+    <>
+      <StatusBar barStyle={colors.isDark ? 'light-content' : 'dark-content'} />
       <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.contentContainer}
+        style={[styles.scroll, { backgroundColor: colors.baseSurface }]}
+        contentContainerStyle={[styles.contentContainer, { backgroundColor: colors.baseSurface }]}
+        contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
       >
         {favoriteList.length > 0 && (
           <>
-            <Text style={styles.sectionTitle}>Избранные</Text>
-            <View style={styles.sectionCard}>{favoriteList.map(renderCurrencyRow)}</View>
-            <Text style={[styles.sectionTitle, styles.sectionTitleOffset]}>Все валюты</Text>
+            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Избранные</Text>
+            <View style={[styles.sectionCard, sectionCardThemeStyle]}>
+              {favoriteList.map((item, idx) => renderCurrencyRow(item, idx, favoriteList))}
+            </View>
+            <Text
+              style={[
+                styles.sectionTitle,
+                styles.sectionTitleOffset,
+                { color: colors.textSecondary },
+              ]}
+            >
+              Все валюты
+            </Text>
           </>
         )}
         {favoriteList.length === 0 && otherList.length > 0 && (
-          <Text style={styles.sectionTitle}>Все валюты</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Все валюты</Text>
         )}
         {otherList.length > 0 && (
-          <View style={styles.sectionCard}>{otherList.map(renderCurrencyRow)}</View>
+          <View style={[styles.sectionCard, sectionCardThemeStyle]}>
+            {otherList.map((item, idx) => renderCurrencyRow(item, idx, otherList))}
+          </View>
         )}
       </ScrollView>
+    </>
   );
 };
 
 const styles = StyleSheet.create({
   scroll: {
     flex: 1,
-    backgroundColor: '#fff',
   },
   contentContainer: {
     paddingTop: 18,
     paddingBottom: 44,
-    backgroundColor: '#fff',
   },
   sectionTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#6f7685',
     marginHorizontal: 20,
     marginBottom: 10,
   },
@@ -247,34 +278,26 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   sectionCard: {
-    backgroundColor: '#fff',
-    marginHorizontal: 12,
+    marginHorizontal: 16,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 8,
+    marginHorizontal: 12,
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f1f4',
   },
   starHit: {
     width: 28,
     marginRight: 12,
     alignItems: 'center',
   },
-  star: {
-    color: '#c9ced6',
-  },
-  starActive: {
-    color: PRIMARY_COLOR,
-  },
   code: {
     width: 52,
     fontSize: 16,
     fontWeight: '600',
-    color: '#646464ff',
   },
   nameWrapper: {
     flex: 1,
@@ -282,7 +305,6 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 16,
-    color: '#1a1c26',
   },
   checkmarkPlaceholder: {
     width: 28,

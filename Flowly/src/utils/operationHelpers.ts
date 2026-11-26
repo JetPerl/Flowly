@@ -8,7 +8,6 @@ import {
 import { formatLongDateRu, sanitizeNumericInput } from './formatters';
 
 const DEFAULT_PRIMARY_COLOR = '#2BAF8C';
-const DEFAULT_TEXT_COLOR = '#212121';
 
 export interface HistoryItem {
   id: string;
@@ -186,12 +185,12 @@ export function mapApiOperationToHistoryItem(
 
   const tags: TagDto[] = Array.isArray(op?.tags)
     ? op.tags
-        .map((t: any): TagDto => ({
-          id: t.id,
-          name: t.name,
-          color: t.color,
-        }))
-        .filter((t: TagDto) => t.id !== undefined && t.name)
+      .map((t: any): TagDto => ({
+        id: t.id,
+        name: t.name,
+        color: t.color,
+      }))
+      .filter((t: TagDto) => t.id !== undefined && t.name)
     : [];
 
   const photoUrl =
@@ -242,6 +241,7 @@ export function mapApiOperationToHistoryItem(
 export function mergeTransferItems(
   items: HistoryItem[],
   primaryColor: string = DEFAULT_PRIMARY_COLOR,
+  fallbackAccountColor: string | null = null,
 ): HistoryItem[] {
   const grouped: Record<string, HistoryItem[]> = {};
   const standalone: HistoryItem[] = [];
@@ -343,7 +343,7 @@ export function mergeTransferItems(
       transferFromAccountName: from.account,
       transferToAccountName: to.account,
       transferFromAccountIcon: from.accountIcon || 'wallet',
-      transferFromAccountColor: from.accountColor || DEFAULT_TEXT_COLOR,
+      transferFromAccountColor: from.accountColor || fallbackAccountColor,
       transferToAccountIcon: to.accountIcon || 'wallet',
       transferToAccountColor: to.accountColor || primaryColor,
       type: 'transfer',
@@ -402,7 +402,7 @@ export function mergeTransferItems(
         transferFromAccountName: exp.account,
         transferToAccountName: match.account,
         transferFromAccountIcon: exp.accountIcon || 'wallet',
-        transferFromAccountColor: exp.accountColor || DEFAULT_TEXT_COLOR,
+        transferFromAccountColor: exp.accountColor || fallbackAccountColor,
         transferToAccountIcon: match.accountIcon || 'wallet',
         transferToAccountColor: match.accountColor || primaryColor,
         type: 'transfer',
@@ -486,4 +486,3 @@ export function groupOperationsIntoSections(items: HistoryItem[]): HistorySectio
       };
     });
 }
-

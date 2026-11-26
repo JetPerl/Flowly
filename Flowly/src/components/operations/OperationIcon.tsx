@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import CategoryIcon from '../CategoryIcon';
 import TransferIcon from './TransferIcon';
 import type { HistoryItem } from '../../utils/operationHelpers';
+import { useThemeColors } from '../../theme/useThemeColors';
 
 type Props = {
   item: HistoryItem;
@@ -17,6 +18,7 @@ export const OperationIcon: React.FC<Props> = ({
   size = 44,
   transferSize = 24,
 }) => {
+  const colors = useThemeColors();
   const isTransfer = item.type === 'transfer' || item.transferId;
 
   if (isTransfer) {
@@ -44,8 +46,6 @@ export const OperationIcon: React.FC<Props> = ({
     );
   }
 
-  const NEUTRAL_ICON_BG = '#F3F4F6';
-
   return (
     <View
       style={[
@@ -54,14 +54,15 @@ export const OperationIcon: React.FC<Props> = ({
           width: size,
           height: size,
           borderRadius: size / 2,
+          backgroundColor: colors.iconSurface,
         },
       ]}
     >
       <CategoryIcon
         name={item.categoryIcon || 'wallet'}
-        color="#212121"
-        backgroundColor={NEUTRAL_ICON_BG}
-        fallbackColor={NEUTRAL_ICON_BG}
+        color={colors.iconPrimary}
+        backgroundColor="transparent"
+        fallbackColor="transparent"
         size={size - 10}
       />
     </View>
@@ -70,11 +71,9 @@ export const OperationIcon: React.FC<Props> = ({
 
 const styles = StyleSheet.create({
   iconWrapper: {
-    backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
   },
 });
 
 export default OperationIcon;
-

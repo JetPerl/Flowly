@@ -1,14 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { Stack, useRouter } from 'expo-router';
-import { SafeAreaView, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import {
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
+} from 'react-native';
 import { useSecurityCode } from './security/SecurityCodeProvider';
-
-const PRIMARY = '#2BAF8C';
-const BORDER = '#E5E7EB';
-const TEXT_MAIN = '#111827';
+import { useThemeColors } from './theme/useThemeColors';
 
 const SecurityList = () => {
   const router = useRouter();
+  const colors = useThemeColors();
   const {
     enabled,
     disable,
@@ -49,53 +55,73 @@ const SecurityList = () => {
     await setBiometricsEnabled(next);
   };
 
+  const trackOffColor = colors.isDark ? 'rgba(255, 255, 255, 0.2)' : '#C8CDD3';
+  const trackOnColor = colors.income;
+
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.baseSurface }]}>
+      <StatusBar barStyle={colors.isDark ? 'light-content' : 'dark-content'} />
       <Stack.Screen
         options={{
           title: 'Безопасность',
           headerTransparent: true,
+          headerTintColor: colors.textMain,
+          headerTitleStyle: { color: colors.textMain },
         }}
       />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.listCard}>
-          <View style={[styles.row, styles.rowDivider]}>
-            <Text style={styles.label}>Защитный код</Text>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        contentInsetAdjustmentBehavior="automatic"
+        showsVerticalScrollIndicator={false}
+      >
+        <View
+          style={[
+            styles.listCard,
+            {
+              backgroundColor: colors.cardSurface,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <View style={[styles.row, styles.rowDivider, { borderBottomColor: colors.divider }]}>
+            <Text style={[styles.label, { color: colors.textMain }]}>Защитный код</Text>
             <Switch
               value={pinEnabled}
               onValueChange={handlePinToggle}
               disabled={loading}
-              trackColor={{ false: '#C8CDD3', true: PRIMARY }}
-              thumbColor="#fff"
-              ios_backgroundColor="#C8CDD3"
+              trackColor={{ false: trackOffColor, true: trackOnColor }}
+              thumbColor="#FFFFFF"
+              ios_backgroundColor={trackOffColor}
             />
           </View>
 
-          <View style={[styles.row, styles.rowDivider]}>
-            <Text style={styles.label}>Face ID</Text>
+          <View style={[styles.row, styles.rowDivider, { borderBottomColor: colors.divider }]}>
+            <Text style={[styles.label, { color: colors.textMain }]}>Face ID</Text>
             <Switch
               value={faceIdEnabled}
               onValueChange={handleFaceToggle}
               disabled={!enabled || loading || !biometricsAvailable}
-              trackColor={{ false: '#C8CDD3', true: PRIMARY }}
-              thumbColor="#fff"
-              ios_backgroundColor="#C8CDD3"
+              trackColor={{ false: trackOffColor, true: trackOnColor }}
+              thumbColor="#FFFFFF"
+              ios_backgroundColor={trackOffColor}
             />
           </View>
           {!biometricsAvailable ? (
             <View style={styles.infoRow}>
-              <Text style={styles.infoText}>{biometricsReason || 'Биометрия недоступна.'}</Text>
+              <Text style={[styles.infoText, { color: colors.textSecondary }]}>
+                {biometricsReason || 'Биометрия недоступна.'}
+              </Text>
             </View>
           ) : null}
 
           <View style={styles.row}>
-            <Text style={styles.label}>Разрешить виджеты</Text>
+            <Text style={[styles.label, { color: colors.textMain }]}>Разрешить виджеты</Text>
             <Switch
               value={widgetsEnabled}
               onValueChange={setWidgetsEnabled}
-              trackColor={{ false: '#C8CDD3', true: PRIMARY }}
-              thumbColor="#fff"
-              ios_backgroundColor="#C8CDD3"
+              trackColor={{ false: trackOffColor, true: trackOnColor }}
+              thumbColor="#FFFFFF"
+              ios_backgroundColor={trackOffColor}
             />
           </View>
         </View>
@@ -107,41 +133,37 @@ const SecurityList = () => {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#fff',
   },
   content: {
-    paddingTop: 8,
+    paddingHorizontal: 16,
+    paddingTop: 12,
     paddingBottom: 32,
   },
   listCard: {
-    backgroundColor: '#fff',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: BORDER,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingVertical: 16,
   },
   rowDivider: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: BORDER,
   },
   label: {
     fontSize: 16,
-    color: TEXT_MAIN,
   },
   infoRow: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingBottom: 12,
     paddingTop: 4,
   },
   infoText: {
     fontSize: 13,
-    color: '#6B7280',
   },
 });
 

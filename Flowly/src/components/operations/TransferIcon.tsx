@@ -1,12 +1,14 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import CategoryIcon from '../CategoryIcon';
+import { useThemeColors } from '../../theme/useThemeColors';
 
 type Props = {
   fromIcon?: string | null;
   toIcon?: string | null;
   fromColor?: string | null;
   toColor?: string | null;
+  ringColor?: string;
   size?: number;
   transferSize?: number;
 };
@@ -16,11 +18,15 @@ export const TransferIcon: React.FC<Props> = ({
   toIcon = 'wallet',
   fromColor = '#F8D7B5',
   toColor = '#F3B0B5',
+  ringColor,
   size = 44,
   transferSize = 24,
 }) => {
+  const colors = useThemeColors();
+  const resolvedRingColor = ringColor ?? colors.cardSurface;
+
   const transferIconTop = (size - transferSize) / 2;
-  const frontWrapperSize = transferSize + 6;
+  const frontWrapperSize = transferSize + 3; // обводка 1.5px вместо 3px
   const frontWrapperTop = (size - frontWrapperSize) / 2;
 
   return (
@@ -43,8 +49,9 @@ export const TransferIcon: React.FC<Props> = ({
             width: frontWrapperSize,
             height: frontWrapperSize,
             borderRadius: frontWrapperSize / 2,
+            backgroundColor: resolvedRingColor,
             top: frontWrapperTop + 4,
-            right: 0,
+            right: 1,
             zIndex: 2,
           },
         ]}
@@ -71,7 +78,6 @@ const styles = StyleSheet.create({
   },
   transferIconFrontWrapper: {
     position: 'absolute',
-    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 2,
@@ -79,4 +85,3 @@ const styles = StyleSheet.create({
 });
 
 export default TransferIcon;
-

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -11,6 +12,7 @@ import Animated, { FadeInDown, FadeOutUp, Layout } from 'react-native-reanimated
 import CategoryIcon from '../../../../../src/components/CategoryIcon';
 import { useTransactionDraft } from '../../../../../src/context/_TransactionDraftContext';
 import { apiRequest } from '../../../../../src/api/client';
+import { useThemeColors } from '../../../../../src/theme/useThemeColors';
 
 type Account = {
   id: number;
@@ -23,12 +25,7 @@ type Account = {
   color?: string | null;
 };
 
-const COLORS = {
-  textMain: '#212121',
-  textSecondary: '#6B7280',
-  purple: '#2BAF8C',
-  border: '#ECEFF1',
-};
+const DEFAULT_ACCENT = '#2BAF8C';
 
 const formatBalance = (value: number | string | null | undefined, currency?: string) => {
   const num = typeof value === 'number' ? value : Number(value);
@@ -48,10 +45,16 @@ const formatBalance = (value: number | string | null | undefined, currency?: str
 export default function TransactionAccountScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const colors = useThemeColors();
   const isTarget = params?.target === '1';
   const { draft, setAccount, setTargetAccount } = useTransactionDraft();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const accentColor = colors.income || DEFAULT_ACCENT;
+  const selectedRowBg = colors.isDark
+    ? 'rgba(255, 255, 255, 0.08)'
+    : '#F2F4F6';
 
   useEffect(() => {
     const load = async () => {
@@ -70,16 +73,19 @@ export default function TransactionAccountScreen() {
   }, []);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.baseSurface }]}>
+      <StatusBar barStyle={colors.isDark ? 'light-content' : 'dark-content'} />
       <Stack.Screen
         options={{
           title: 'Счёт',
+          headerTintColor: colors.textMain,
+          headerTitleStyle: { color: colors.textMain },
         }}
       />
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#0F172A" />
+          <ActivityIndicator size="large" color={accentColor} />
         </View>
       ) : (
         <Animated.ScrollView
@@ -99,7 +105,14 @@ export default function TransactionAccountScreen() {
                 exiting={FadeOutUp.duration(140)}
               >
                 <TouchableOpacity
-                  style={[styles.row, isSelected && styles.rowSelected]}
+                  style={[
+                    styles.row,
+                    {
+                      backgroundColor: isSelected ? selectedRowBg : colors.baseSurface,
+                      borderBottomColor: colors.divider,
+                    },
+                    isSelected && styles.rowSelected,
+                  ]}
                   activeOpacity={0.7}
                   onPress={() => {
                     const next = {
@@ -108,7 +121,10 @@ export default function TransactionAccountScreen() {
                       currency: acc.currency,
                       icon: acc.icon || undefined,
                       color: acc.color || undefined,
-                      balance: typeof acc.balance === 'number' ? acc.balance : Number(acc.balance) || null,
+                      balance:
+                        typeof acc.balance === 'number'
+                          ? acc.balance
+                          : Number(acc.balance) || null,
                     };
                     if (isTarget) {
                       setTargetAccount(next);
@@ -120,14 +136,18 @@ export default function TransactionAccountScreen() {
                 >
                   <CategoryIcon
                     name={acc.icon || 'wallet'}
-                    color={acc.color || undefined}
+                    color={acc.color || colors.iconPrimary}
                     backgroundColor="transparent"
                     size={28}
                   />
                   <View style={styles.rowTextWrap}>
-                    <Text style={styles.rowTitle}>{label}</Text>
+                    <Text style={[styles.rowTitle, { color: colors.textMain }]}>
+                      {label}
+                    </Text>
                     {acc.currency ? (
-                      <Text style={styles.rowSubtitle}>{acc.currency}</Text>
+                      <Text style={[styles.rowSubtitle, { color: colors.textSecondary }]}>
+                        {acc.currency}
+                      </Text>
                     ) : null}
                   </View>
                   <View style={styles.rowRight}>
@@ -135,8 +155,8 @@ export default function TransactionAccountScreen() {
                       const balance = formatBalance(acc.balance, acc.currency);
                       const balanceColor =
                         typeof balance.value === 'number' && balance.value < 0
-                          ? COLORS.textMain
-                          : COLORS.purple;
+                          ? colors.expense || colors.textMain
+                          : accentColor;
                       return (
                         <Text style={[styles.rowBalance, { color: balanceColor }]}>
                           {balance.label}
@@ -157,17 +177,11 @@ export default function TransactionAccountScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: COLORS.textMain,
   },
   list: {
     paddingBottom: 24,
@@ -176,16 +190,13 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderRadius: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: COLORS.border,
   },
   rowSelected: {
     marginHorizontal: 10,
-    backgroundColor: '#F2F4F6',
     paddingHorizontal: 10,
   },
   rowTextWrap: {
@@ -198,7 +209,6 @@ const styles = StyleSheet.create({
   },
   rowSubtitle: {
     fontSize: 13,
-    color: COLORS.textSecondary,
     marginTop: 2,
   },
   rowRight: {
@@ -208,6 +218,5 @@ const styles = StyleSheet.create({
   rowBalance: {
     fontSize: 15,
     fontWeight: '600',
-    color: COLORS.purple,
   },
 });
