@@ -57,16 +57,7 @@ public class AccountServiceImpl implements AccountService {
 
         validateBalanceForType(request.type(), request.balance());
 
-        Account account = Account.builder()
-                .user(user)
-                .name(request.name().trim())
-                .balance(request.balance())
-                .currency(request.currency().trim().toUpperCase())
-                .type(request.type())
-                .color(request.color().trim())
-                .icon(request.icon().trim())
-                .build();
-
+        Account account = accountMapper.toEntity(request, user);
         Account saved = accountRepository.save(account);
         return accountMapper.toAccountResponse(saved);
     }
@@ -75,31 +66,13 @@ public class AccountServiceImpl implements AccountService {
     @Transactional
     public AccountResponse updateAccount(Integer id, AccountUpdateRequest request) {
         Integer userId = SecurityUtils.getCurrentUserId();
-        Account account = findOwnedAccount(id, userId);
+        Account account = findOwnedAccountForUpdate(id, userId);
 
         AccountType effectiveType = request.type() != null ? request.type() : account.getType();
         BigDecimal effectiveBalance = request.balance() != null ? request.balance() : account.getBalance();
         validateBalanceForType(effectiveType, effectiveBalance);
 
-        if (request.name() != null) {
-            account.setName(request.name().trim());
-        }
-        if (request.balance() != null) {
-            account.setBalance(request.balance());
-        }
-        if (request.currency() != null) {
-            account.setCurrency(request.currency().trim().toUpperCase());
-        }
-        if (request.type() != null) {
-            account.setType(request.type());
-        }
-        if (request.color() != null) {
-            account.setColor(request.color().trim());
-        }
-        if (request.icon() != null) {
-            account.setIcon(request.icon().trim());
-        }
-
+        accountMapper.updateEntityFromRequest(request, account);
         Account updated = accountRepository.save(account);
         return accountMapper.toAccountResponse(updated);
     }
@@ -120,6 +93,17 @@ public class AccountServiceImpl implements AccountService {
 
     private Account findOwnedAccount(Integer id, Integer userId) {
         Account account = accountRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Счет с ID " + id + " не найден"));
+
+        if (account.getUser() == null || !account.getUser().getId().equals(userId)) {
+            throw new ForbiddenAccessException("У вас нет прав для доступа к этому счету");
+        }
+
+        return account;
+    }
+
+    private Account findOwnedAccountForUpdate(Integer id, Integer userId) {
+        Account account = accountRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Счет с ID " + id + " не найден"));
 
         if (account.getUser() == null || !account.getUser().getId().equals(userId)) {

@@ -35,4 +35,7 @@
     <include file="2026/11/23/2026-11-23_create_user_categories_table.sql" relativeToChangelogFile="true"/>
     <include file="2026/11/23/2026-11-23_create_user_tags_table.sql" relativeToChangelogFile="true"/>
 
+    <include file="2026/11/26/2026-11-26_add_operations_performance_indexes.sql" relativeToChangelogFile="true"/>
+    <include file="2026/11/26/2026-11-26_drop_redundant_index_operations_account_id.sql" relativeToChangelogFile="true"/>
+
 </databaseChangeLog>

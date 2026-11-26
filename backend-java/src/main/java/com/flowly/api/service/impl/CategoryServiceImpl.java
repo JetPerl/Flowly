@@ -3,7 +3,9 @@ package com.flowly.api.service.impl;
 import com.flowly.api.exception.BusinessValidationException;
 import com.flowly.api.exception.ForbiddenAccessException;
 import com.flowly.api.exception.ResourceNotFoundException;
+import com.flowly.api.mapper.CategoryMapper;
 import com.flowly.api.model.dto.CategoryDto;
+import com.flowly.api.model.dto.EffectiveCategory;
 import com.flowly.api.model.entity.Category;
 import com.flowly.api.model.entity.User;
 import com.flowly.api.model.entity.UserCategory;
@@ -16,6 +18,7 @@ import com.flowly.api.repository.UserCategoryRepository;
 import com.flowly.api.repository.UserRepository;
 import com.flowly.api.service.CategoryService;
 import com.flowly.api.utils.CategoryAccessPolicy;
+import com.flowly.api.utils.CategoryHierarchyPolicy;
 import com.flowly.api.utils.SecurityUtils;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -37,9 +40,8 @@ import java.util.stream.Collectors;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class CategoryServiceImpl implements CategoryService {
 
-    static final int MAX_CATEGORY_DEPTH = 5;
-
     CategoryRepository categoryRepository;
+    CategoryMapper categoryMapper;
     UserCategoryRepository userCategoryRepository;
     OperationRepository operationRepository;
     UserRepository userRepository;
@@ -75,7 +77,7 @@ public class CategoryServiceImpl implements CategoryService {
 
         if (!asTree) {
             return effectiveList.stream()
-                    .map(ec -> toDto(ec, List.of()))
+                    .map(ec -> categoryMapper.toDto(ec, List.of()))
                     .toList();
         }
 
@@ -88,7 +90,7 @@ public class CategoryServiceImpl implements CategoryService {
         Integer userId = SecurityUtils.getCurrentUserId();
         Category category = findAccessibleCategory(id, userId);
         UserCategory override = userCategoryRepository.findByUserIdAndCategoryId(userId, category.getId()).orElse(null);
-        return toDto(resolveEffectiveCategory(category, override), List.of());
+        return categoryMapper.toDto(resolveEffectiveCategory(category, override), List.of());
     }
 
     @Override
@@ -98,23 +100,14 @@ public class CategoryServiceImpl implements CategoryService {
         User user = getCurrentUserEntity(userId);
 
         Category parent = request.parentId() != null
-                ? validateParentAndDepth(request.type(), null, request.parentId(), userId, false)
+                ? CategoryHierarchyPolicy.validateAndResolveParent(
+                    request.type(), null, request.parentId(), userId, false, categoryRepository
+                )
                 : null;
 
-        Category category = Category.builder()
-                .name(request.name().trim())
-                .type(request.type())
-                .parent(parent)
-                .icon(request.icon())
-                .color(request.color())
-                .sortOrder(request.sortOrder())
-                .isHidden(false)
-                .isSystem(false)
-                .user(user)
-                .build();
-
+        Category category = categoryMapper.toEntity(request, parent, user);
         Category saved = categoryRepository.save(category);
-        return toDto(resolveEffectiveCategory(saved, null), List.of());
+        return categoryMapper.toDto(resolveEffectiveCategory(saved, null), List.of());
     }
 
     @Override
@@ -144,7 +137,7 @@ public class CategoryServiceImpl implements CategoryService {
         userCategoryRepository.findByUserIdAndCategoryId(userId, category.getId())
                 .ifPresent(userCategoryRepository::delete);
 
-        return toDto(resolveEffectiveCategory(category, null), List.of());
+        return categoryMapper.toDto(resolveEffectiveCategory(category, null), List.of());
     }
 
     @Override
@@ -182,31 +175,17 @@ public class CategoryServiceImpl implements CategoryService {
             throw new ForbiddenAccessException("У вас нет прав для изменения этой категории");
         }
 
-        if (request.name() != null) {
-            category.setName(request.name().trim());
-        }
-        if (request.icon() != null) {
-            category.setIcon(request.icon());
-        }
-        if (request.color() != null) {
-            category.setColor(request.color());
-        }
-        if (request.sortOrder() != null) {
-            category.setSortOrder(request.sortOrder());
-        }
-        if (request.isHidden() != null) {
-            category.setIsHidden(request.isHidden());
-        }
-        if (request.parentId() != null) {
-            Category newParent = validateParentAndDepth(
-                    category.getType(), category.getId(), request.parentId(), userId, true
-            );
-            category.setParent(newParent);
-        }
+        Category targetParent = request.parentId() != null
+                ? CategoryHierarchyPolicy.validateAndResolveParent(
+                    category.getType(), category.getId(), request.parentId(), userId, true, categoryRepository
+                )
+                : category.getParent();
+
+        categoryMapper.updateEntityFromRequest(request, targetParent, category);
 
         Category saved = categoryRepository.save(category);
         UserCategory override = userCategoryRepository.findByUserIdAndCategoryId(userId, saved.getId()).orElse(null);
-        return toDto(resolveEffectiveCategory(saved, override), List.of());
+        return categoryMapper.toDto(resolveEffectiveCategory(saved, override), List.of());
     }
 
     private CategoryDto updateSystemCategoryOverride(
@@ -226,15 +205,15 @@ public class CategoryServiceImpl implements CategoryService {
         applyOverrideFields(override, request);
 
         if (request.parentId() != null) {
-            Category newParent = validateParentAndDepth(
-                    category.getType(), category.getId(), request.parentId(), userId, true
+            Category newParent = CategoryHierarchyPolicy.validateAndResolveParent(
+                    category.getType(), category.getId(), request.parentId(), userId, true, categoryRepository
             );
             override.setCustomParent(newParent);
             override.setIsCustomized(true);
         }
 
         UserCategory savedOverride = userCategoryRepository.save(override);
-        return toDto(resolveEffectiveCategory(category, savedOverride), List.of());
+        return categoryMapper.toDto(resolveEffectiveCategory(category, savedOverride), List.of());
     }
 
     private void applyOverrideFields(UserCategory override, CategoryUpdateRequest request) {
@@ -273,36 +252,6 @@ public class CategoryServiceImpl implements CategoryService {
         return category;
     }
 
-    private Category validateParentAndDepth(
-            CategoryType type,
-            Integer currentCategoryId,
-            Long newParentId,
-            Integer userId,
-            boolean checkSubtree
-    ) {
-        if (currentCategoryId != null && newParentId.intValue() == currentCategoryId) {
-            throw new BusinessValidationException("Категория не может быть родителем самой себя");
-        }
-
-        Category parent = findAccessibleCategory(newParentId.intValue(), userId);
-        if (parent.getType() != type) {
-            throw new BusinessValidationException("Тип подкатегории должен совпадать с типом родительской категории");
-        }
-
-        int parentDepth = calculateDepthToRoot(parent, new HashSet<>());
-        int requiredLevels = checkSubtree
-                ? calculateSubtreeHeight(findAccessibleCategory(currentCategoryId, userId), new HashSet<>())
-                : 1;
-
-        if (parentDepth + requiredLevels > MAX_CATEGORY_DEPTH) {
-            throw new BusinessValidationException(
-                    "Превышена максимальная глубина иерархии категорий (" + MAX_CATEGORY_DEPTH + " уровней)"
-            );
-        }
-
-        return parent;
-    }
-
     private Category findFallbackUncategorized(CategoryType type) {
         List<Category> candidates = categoryRepository.findDefaultUncategorizedByType(type);
         if (!candidates.isEmpty()) {
@@ -314,39 +263,6 @@ public class CategoryServiceImpl implements CategoryService {
     private User getCurrentUserEntity(Integer userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Пользователь с ID " + userId + " не найден"));
-    }
-
-    private int calculateDepthToRoot(Category category, Set<Integer> visited) {
-        int depth = 0;
-        Category current = category;
-        while (current != null) {
-            if (current.getId() != null && !visited.add(current.getId())) {
-                throw new BusinessValidationException("Обнаружен цикл в иерархии категорий");
-            }
-            depth++;
-            if (depth > MAX_CATEGORY_DEPTH) {
-                throw new BusinessValidationException(
-                        "Превышена максимальная глубина иерархии категорий (" + MAX_CATEGORY_DEPTH + " уровней)"
-                );
-            }
-            current = current.getParent();
-        }
-        return depth;
-    }
-
-    private int calculateSubtreeHeight(Category node, Set<Integer> visited) {
-        if (node.getId() != null && !visited.add(node.getId())) {
-            throw new BusinessValidationException("Обнаружен цикл в иерархии категорий");
-        }
-        List<Category> children = categoryRepository.findAllByParentId(node.getId());
-        int maxChildHeight = 0;
-        for (Category child : children) {
-            int childHeight = calculateSubtreeHeight(child, new HashSet<>(visited));
-            if (childHeight > maxChildHeight) {
-                maxChildHeight = childHeight;
-            }
-        }
-        return 1 + maxChildHeight;
     }
 
     private EffectiveCategory resolveEffectiveCategory(Category category, UserCategory override) {
@@ -420,42 +336,12 @@ public class CategoryServiceImpl implements CategoryService {
             Set<Integer> visited
     ) {
         if (!visited.add(node.id())) {
-            return toDto(node, List.of());
+            return categoryMapper.toDto(node, List.of());
         }
         List<EffectiveCategory> rawChildren = childrenByParent.getOrDefault(node.id(), List.of());
         List<CategoryDto> childrenList = rawChildren.stream()
                 .map(child -> toTreeDto(child, childrenByParent, new HashSet<>(visited)))
                 .toList();
-        return toDto(node, childrenList);
-    }
-
-    private CategoryDto toDto(EffectiveCategory ec, List<CategoryDto> children) {
-        return new CategoryDto(
-                ec.id().longValue(),
-                ec.name(),
-                ec.type(),
-                ec.parentId() != null ? ec.parentId().longValue() : null,
-                ec.icon(),
-                ec.color(),
-                ec.sortOrder(),
-                ec.isSystem(),
-                ec.isCustomized(),
-                ec.isHidden(),
-                children
-        );
-    }
-
-    private record EffectiveCategory(
-            Integer id,
-            String name,
-            CategoryType type,
-            Integer parentId,
-            String icon,
-            String color,
-            Integer sortOrder,
-            Boolean isSystem,
-            Boolean isCustomized,
-            Boolean isHidden
-    ) {
+        return categoryMapper.toDto(node, childrenList);
     }
 }
