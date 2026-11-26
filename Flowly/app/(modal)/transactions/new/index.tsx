@@ -11,6 +11,7 @@ import {
   Alert,
   DeviceEventEmitter,
   Image,
+  StatusBar,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import SegmentedControl from '@react-native-segmented-control/segmented-control';
@@ -35,19 +36,16 @@ import {
   getAccounts,
   getCategories,
 } from '../../../../src/api';
+import { useThemeColors } from '../../../../src/theme/useThemeColors';
 
-const COLORS = {
-  textMain: '#212121',
-  textSecondary: '#757575',
-  primary: '#2BAF8C',
-};
-
+const DEFAULT_PRIMARY_COLOR = '#2BAF8C';
 const OPERATION_TYPES: ('expense' | 'income' | 'transfer')[] = ['expense', 'income', 'transfer'];
 const OPERATION_LABELS = ['Расход', 'Доход', 'Перевод'];
 const NativeSegmentedControl = SegmentedControl as any;
 
 export default function NewTransactionScreen() {
   const router = useRouter();
+  const colors = useThemeColors();
   const {
     draft,
     setAmount,
@@ -80,6 +78,14 @@ export default function NewTransactionScreen() {
   const [ratesMap, setRatesMap] = useState<Record<string, number> | null>(null);
   const scrollRef = useRef<any>(null);
   const noteInputRef = useRef<any>(null);
+
+  const primaryColor = colors.income || DEFAULT_PRIMARY_COLOR;
+  const mutedTextColor = colors.isDark ? '#64748B' : '#B0B3B8';
+  const labelTextColor = colors.isDark ? '#94A3B8' : '#9CA3AF';
+  const actionPillBg = colors.isDark ? colors.cardSurface : '#F6F6F8';
+  const actionPillDisabledBg = colors.isDark ? colors.elevatedSurface : '#F0F1F3';
+  const actionPillDisabledText = colors.isDark ? '#475569' : '#C3C5CD';
+  const deleteColor = colors.isDark ? '#F87171' : '#E53935';
 
   const toggleDatePicker = useCallback(() => {
     setDatePickerVisible(prev => !prev);
@@ -153,28 +159,6 @@ export default function NewTransactionScreen() {
 
   useEffect(() => {
     let cancelled = false;
-
-    const pickFirstCategory = (payload: any) => {
-      if (draft.type === 'income' && Array.isArray(payload?.income) && payload.income.length > 0) {
-        const cat = payload.income[0];
-        return { id: cat.id, name: cat.name, icon: cat.icon, color: cat.color, parentName: null };
-      }
-      if (Array.isArray(payload?.expense) && payload.expense.length > 0) {
-        const group = payload.expense[0];
-        if (Array.isArray(group.children) && group.children.length > 0) {
-          const child = group.children[0];
-          return {
-            id: child.id,
-            name: child.name,
-            icon: child.icon,
-            color: child.color,
-            parentName: group.name ?? null,
-          };
-        }
-        return { id: group.id, name: group.name, icon: group.icon, color: group.color, parentName: null };
-      }
-      return null;
-    };
 
     const preselect = async () => {
       try {
@@ -790,61 +774,83 @@ export default function NewTransactionScreen() {
 
   const renderCategoryValue = () => {
     if (!draft.category) {
-      return <Text style={styles.operationFieldValueMuted}>Выберите категорию</Text>;
+      return (
+        <Text style={[styles.operationFieldValueMuted, { color: mutedTextColor }]}>
+          Выберите категорию
+        </Text>
+      );
     }
     return (
       <View style={styles.operationFieldValueWithIcon}>
         <CategoryIcon
           name={draft.category.icon || 'wallet'}
-          color={draft.category.color || undefined}
+          color={draft.category.color || colors.iconPrimary}
           backgroundColor="transparent"
           size={28}
           style={styles.operationFieldCategoryIcon}
         />
-        <Text style={styles.operationFieldValue}>{draft.category.name}</Text>
+        <Text style={[styles.operationFieldValue, { color: colors.textMain }]}>
+          {draft.category.name}
+        </Text>
       </View>
     );
   };
 
   const renderAccountValue = () => {
     if (!draft.account) {
-      return <Text style={styles.operationFieldValueMuted}>Выберите счёт</Text>;
+      return (
+        <Text style={[styles.operationFieldValueMuted, { color: mutedTextColor }]}>
+          Выберите счёт
+        </Text>
+      );
     }
     return (
       <View style={styles.operationFieldValueWithIcon}>
         <CategoryIcon
           name={draft.account.icon || 'wallet'}
-          color={draft.account.color || undefined}
+          color={draft.account.color || colors.iconPrimary}
           backgroundColor="transparent"
           size={28}
           style={styles.operationFieldCategoryIcon}
         />
-        <Text style={styles.operationFieldValue}>{draft.account.name}</Text>
+        <Text style={[styles.operationFieldValue, { color: colors.textMain }]}>
+          {draft.account.name}
+        </Text>
       </View>
     );
   };
 
   const renderTargetAccountValue = () => {
     if (!draft.targetAccount) {
-      return <Text style={styles.operationFieldValueMuted}>Выберите счёт получателя</Text>;
+      return (
+        <Text style={[styles.operationFieldValueMuted, { color: mutedTextColor }]}>
+          Выберите счёт получателя
+        </Text>
+      );
     }
     return (
       <View style={styles.operationFieldValueWithIcon}>
         <CategoryIcon
           name={draft.targetAccount.icon || 'wallet'}
-          color={draft.targetAccount.color || undefined}
+          color={draft.targetAccount.color || colors.iconPrimary}
           backgroundColor="transparent"
           size={28}
           style={styles.operationFieldCategoryIcon}
         />
-        <Text style={styles.operationFieldValue}>{draft.targetAccount.name}</Text>
+        <Text style={[styles.operationFieldValue, { color: colors.textMain }]}>
+          {draft.targetAccount.name}
+        </Text>
       </View>
     );
   };
 
   const renderTagsValue = () => {
     if (!draft.tags || draft.tags.length === 0) {
-      return <Text style={styles.operationFieldValueMuted}>Добавить</Text>;
+      return (
+        <Text style={[styles.operationFieldValueMuted, { color: mutedTextColor }]}>
+          Добавить
+        </Text>
+      );
     }
 
     const visibleTags = draft.tags.slice(0, 3);
@@ -857,23 +863,39 @@ export default function NewTransactionScreen() {
             key={tag.id}
             style={[
               styles.tagBadge,
-              tag.color ? { borderColor: tag.color } : null,
+              {
+                borderColor: tag.color || (colors.isDark ? 'rgba(52,211,153,0.35)' : 'rgba(43,175,140,0.2)'),
+                backgroundColor: colors.isDark ? 'rgba(52,211,153,0.14)' : 'rgba(43,175,140,0.08)',
+              },
             ]}
           >
             <FontAwesome6
               name="tag"
               size={14}
-              color={tag.color || COLORS.textSecondary}
+              color={tag.color || colors.textSecondary}
               style={styles.tagBadgeIcon}
             />
-            <Text style={styles.tagBadgeText} numberOfLines={1}>
+            <Text
+              style={[styles.tagBadgeText, { color: colors.textMain }]}
+              numberOfLines={1}
+            >
               {tag.name}
             </Text>
           </View>
         ))}
         {hiddenCount > 0 && (
-          <View style={styles.tagBadge}>
-            <Text style={styles.tagBadgeText}>+{hiddenCount}</Text>
+          <View
+            style={[
+              styles.tagBadge,
+              {
+                borderColor: colors.border,
+                backgroundColor: colors.elevatedSurface,
+              },
+            ]}
+          >
+            <Text style={[styles.tagBadgeText, { color: colors.textMain }]}>
+              +{hiddenCount}
+            </Text>
           </View>
         )}
       </View>
@@ -928,13 +950,17 @@ export default function NewTransactionScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.baseSurface }]}>
+      <StatusBar barStyle={colors.isDark ? 'light-content' : 'dark-content'} />
       <Stack.Screen
         options={{
           title: 'Операция',
           headerShown: true,
           headerTransparent: true,
           headerShadowVisible: false,
+          headerStyle: { backgroundColor: 'transparent' },
+          headerTintColor: colors.textMain,
+          headerTitleStyle: { color: colors.textMain },
           unstable_headerLeftItems: () => [
             {
               type: 'button',
@@ -970,6 +996,7 @@ export default function NewTransactionScreen() {
           <NativeSegmentedControl
             values={OPERATION_LABELS}
             selectedIndex={selectedSegmentIndex}
+            appearance={colors.isDark ? 'dark' : 'light'}
             onChange={(event: any) => {
               const nextType = OPERATION_TYPES[event.nativeEvent.selectedSegmentIndex];
               if (nextType && nextType !== draft.type) {
@@ -984,29 +1011,36 @@ export default function NewTransactionScreen() {
 
           <View style={styles.amountInputRow}>
             <TextInput
-              style={styles.amountInput}
+              style={[styles.amountInput, { color: colors.textMain }]}
               keyboardType="decimal-pad"
               inputMode="decimal"
+              keyboardAppearance={colors.isDark ? 'dark' : 'light'}
               placeholder="0"
-              placeholderTextColor={COLORS.textMain}
+              placeholderTextColor={mutedTextColor}
               value={draft.amount}
               onChangeText={setAmount}
               returnKeyType="done"
-              selectionColor={COLORS.primary}
+              selectionColor={primaryColor}
             />
-            <Text style={styles.amountInputSymbol}>{amountCurrencySymbol}</Text>
+            <Text style={[styles.amountInputSymbol, { color: colors.textMain }]}>
+              {amountCurrencySymbol}
+            </Text>
           </View>
-          <Text style={styles.amountInputHint}>{convertedAmountLabel}</Text>
+          <Text style={[styles.amountInputHint, { color: colors.textSecondary }]}>
+            {convertedAmountLabel}
+          </Text>
         </View>
 
         <View style={styles.operationDetailsBlock}>
           {!isTransfer && (
             <TouchableOpacity
-              style={styles.operationFieldRow}
+              style={[styles.operationFieldRow, { borderBottomColor: colors.divider }]}
               activeOpacity={0.7}
               onPress={() => router.push('/transactions/new/category')}
             >
-              <Text style={styles.operationFieldLabel}>Категория</Text>
+              <Text style={[styles.operationFieldLabel, { color: labelTextColor }]}>
+                Категория
+              </Text>
               <View style={styles.operationFieldValueWithIcon}>
                 {renderCategoryValue()}
               </View>
@@ -1014,11 +1048,11 @@ export default function NewTransactionScreen() {
           )}
 
           <TouchableOpacity
-            style={styles.operationFieldRow}
+            style={[styles.operationFieldRow, { borderBottomColor: colors.divider }]}
             activeOpacity={0.7}
             onPress={() => router.push('/transactions/new/account')}
           >
-            <Text style={styles.operationFieldLabel}>
+            <Text style={[styles.operationFieldLabel, { color: labelTextColor }]}>
               {isTransfer ? 'Со счёта' : 'Счёт'}
             </Text>
             <View style={styles.operationFieldValueWithIcon}>
@@ -1028,11 +1062,13 @@ export default function NewTransactionScreen() {
 
           {isTransfer && (
             <TouchableOpacity
-              style={styles.operationFieldRow}
+              style={[styles.operationFieldRow, { borderBottomColor: colors.divider }]}
               activeOpacity={0.7}
               onPress={() => router.push('/transactions/new/account?target=1')}
             >
-              <Text style={styles.operationFieldLabel}>На счёт</Text>
+              <Text style={[styles.operationFieldLabel, { color: labelTextColor }]}>
+                На счёт
+              </Text>
               <View style={styles.operationFieldValueWithIcon}>
                 {renderTargetAccountValue()}
               </View>
@@ -1040,13 +1076,17 @@ export default function NewTransactionScreen() {
           )}
 
           <TouchableOpacity
-            style={styles.operationFieldRow}
+            style={[styles.operationFieldRow, { borderBottomColor: colors.divider }]}
             activeOpacity={0.7}
             onPress={toggleDatePicker}
           >
-            <Text style={styles.operationFieldLabel}>Дата</Text>
+            <Text style={[styles.operationFieldLabel, { color: labelTextColor }]}>
+              Дата
+            </Text>
             <View style={styles.operationFieldValueWithIcon}>
-              <Text style={styles.operationFieldValue}>{formattedDateLabel}</Text>
+              <Text style={[styles.operationFieldValue, { color: colors.textMain }]}>
+                {formattedDateLabel}
+              </Text>
             </View>
           </TouchableOpacity>
 
@@ -1056,49 +1096,56 @@ export default function NewTransactionScreen() {
                 value={safeDate}
                 mode="date"
                 display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                themeVariant={colors.isDark ? 'dark' : 'light'}
                 locale="ru-RU"
                 onChange={handleDateChange}
                 style={styles.inlinePicker}
-                accentColor={COLORS.primary}
+                accentColor={primaryColor}
               />
 
               <View style={styles.timeRow}>
-                <Text style={styles.timeLabel}>Время</Text>
+                <Text style={[styles.timeLabel, { color: colors.textMain }]}>Время</Text>
                 <View style={styles.compactTimePickerWrapper}>
                   <DateTimePicker
                     value={safeDate}
                     mode="time"
                     display={Platform.OS === 'ios' ? 'compact' : 'default'}
+                    themeVariant={colors.isDark ? 'dark' : 'light'}
                     onChange={handleTimeChange}
                     style={styles.compactTimePicker}
                     locale="ru-RU"
-                    textColor={COLORS.textMain}
-                    accentColor={COLORS.primary}
+                    textColor={colors.textMain}
+                    accentColor={primaryColor}
                   />
                 </View>
               </View>
-              <View style={styles.timeDivider} />
+              <View style={[styles.timeDivider, { backgroundColor: colors.divider }]} />
             </View>
           ) : null}
 
           <TouchableOpacity
-            style={styles.operationFieldRow}
+            style={[styles.operationFieldRow, { borderBottomColor: colors.divider }]}
             activeOpacity={0.7}
             onPress={() => router.push('/transactions/new/tags')}
           >
-            <Text style={styles.operationFieldLabel}>Метки</Text>
+            <Text style={[styles.operationFieldLabel, { color: labelTextColor }]}>
+              Метки
+            </Text>
             <View style={[styles.operationFieldValueWithIcon, styles.tagsValueWrapper]}>
               {renderTagsValue()}
             </View>
           </TouchableOpacity>
 
           {!isTransfer && (
-            <View style={styles.operationFieldRow}>
-              <Text style={styles.operationFieldLabel}>Получатель</Text>
+            <View style={[styles.operationFieldRow, { borderBottomColor: colors.divider }]}>
+              <Text style={[styles.operationFieldLabel, { color: labelTextColor }]}>
+                Получатель
+              </Text>
               <TextInput
-                style={[styles.operationFieldInput, { flex: 1 }]}
+                style={[styles.operationFieldInput, { flex: 1, color: colors.textMain }]}
                 placeholder="Добавьте получателя"
-                placeholderTextColor="#B0B3B8"
+                placeholderTextColor={mutedTextColor}
+                keyboardAppearance={colors.isDark ? 'dark' : 'light'}
                 value={draft.recipient}
                 onChangeText={setRecipient}
                 returnKeyType="done"
@@ -1107,13 +1154,16 @@ export default function NewTransactionScreen() {
             </View>
           )}
 
-          <View style={styles.operationFieldRow}>
-            <Text style={styles.operationFieldLabel}>Примечание</Text>
+          <View style={[styles.operationFieldRow, { borderBottomColor: colors.divider }]}>
+            <Text style={[styles.operationFieldLabel, { color: labelTextColor }]}>
+              Примечание
+            </Text>
             <TextInput
               ref={noteInputRef}
-              style={[styles.operationFieldInput, { flex: 1 }]}
+              style={[styles.operationFieldInput, { flex: 1, color: colors.textMain }]}
               placeholder="Добавьте примечание"
-              placeholderTextColor="#B0B3B8"
+              placeholderTextColor={mutedTextColor}
+              keyboardAppearance={colors.isDark ? 'dark' : 'light'}
               value={draft.note}
               onChangeText={setNote}
               onFocus={scrollNoteIntoView}
@@ -1129,6 +1179,11 @@ export default function NewTransactionScreen() {
           disabled={isSaving || isDeleting}
           style={[
             styles.operationPrimaryButton,
+            {
+              backgroundColor: primaryColor,
+              shadowOpacity: colors.isDark ? 0 : 0.08,
+              elevation: colors.isDark ? 0 : 4,
+            },
             (isSaving || isDeleting) && { opacity: 0.6 },
           ]}
         >
@@ -1138,7 +1193,15 @@ export default function NewTransactionScreen() {
         </TouchableOpacity>
 
         {photoUri ? (
-          <View style={styles.photoPreviewCard}>
+          <View
+            style={[
+              styles.photoPreviewCard,
+              {
+                borderColor: colors.border,
+                backgroundColor: colors.cardSurface,
+              },
+            ]}
+          >
             <Image
               source={{ uri: resolvePhotoUrl(photoUri) || undefined }}
               style={styles.photoPreviewImage}
@@ -1151,7 +1214,7 @@ export default function NewTransactionScreen() {
           {[
             {
               label: 'Дублировать',
-              icon: <FontAwesome6 name="copy" size={18} color={COLORS.primary} />,
+              icon: <FontAwesome6 name="copy" size={18} color={primaryColor} />,
               disabled:
                 (!existingOperationId && existingTransferOperationIds.length === 0) ||
                 isSaving ||
@@ -1164,7 +1227,7 @@ export default function NewTransactionScreen() {
                 <MaterialCommunityIcons
                   name={isPinned ? 'pin-off' : 'pin'}
                   size={18}
-                  color={COLORS.primary}
+                  color={primaryColor}
                 />
               ),
               disabled: isSaving || isDeleting,
@@ -1172,52 +1235,59 @@ export default function NewTransactionScreen() {
             },
             {
               label: 'Фото',
-              icon: <Ionicons name="camera" size={18} color={COLORS.primary} />,
+              icon: <Ionicons name="camera" size={18} color={primaryColor} />,
               disabled: false,
               onPress: pickPhoto,
             },
             {
               label: 'Удалить',
-              icon: <FontAwesome6 name="trash-alt" size={18} color="#E53935" />,
-              textColor: '#E53935',
+              icon: <FontAwesome6 name="trash-alt" size={18} color={deleteColor} />,
+              textColor: deleteColor,
               disabled:
                 (!existingOperationId && existingTransferOperationIds.length === 0) ||
                 isSaving ||
                 isDeleting,
               onPress: handleDelete,
             },
-          ].map(action => (
-            <TouchableOpacity
-              key={action.label}
-              activeOpacity={0.75}
-              style={[
-                styles.operationActionPill,
-                (action.disabled || isDeleting || isSaving) && styles.operationActionPillDisabled,
-              ]}
-              onPress={action.disabled ? undefined : action.onPress}
-              disabled={action.disabled}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <View
-                  style={[
-                    styles.operationActionIconElement,
-                    (action.disabled || isDeleting || isSaving) && styles.operationActionIconElementDisabled,
-                  ]}
-                >
-                  {action.icon}
+          ].map(action => {
+            const isActionDisabled = action.disabled || isDeleting || isSaving;
+            return (
+              <TouchableOpacity
+                key={action.label}
+                activeOpacity={0.75}
+                style={[
+                  styles.operationActionPill,
+                  {
+                    backgroundColor: isActionDisabled ? actionPillDisabledBg : actionPillBg,
+                    borderColor: colors.border,
+                    borderWidth: colors.isDark ? StyleSheet.hairlineWidth : 0,
+                  },
+                ]}
+                onPress={action.disabled ? undefined : action.onPress}
+                disabled={action.disabled}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View
+                    style={[
+                      styles.operationActionIconElement,
+                      isActionDisabled && styles.operationActionIconElementDisabled,
+                    ]}
+                  >
+                    {action.icon}
+                  </View>
+                  <Text
+                    style={[
+                      styles.operationActionText,
+                      { color: action.textColor || primaryColor },
+                      isActionDisabled && { color: actionPillDisabledText },
+                    ]}
+                  >
+                    {action.label}
+                  </Text>
                 </View>
-                <Text
-                  style={[
-                    styles.operationActionText,
-                    action.textColor ? { color: action.textColor } : null,
-                    (action.disabled || isDeleting || isSaving) && styles.operationActionTextDisabled,
-                  ]}
-                >
-                  {action.label}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          ))}
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </ScrollView>
     </View>
@@ -1227,7 +1297,6 @@ export default function NewTransactionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   scrollContent: {
     paddingBottom: 32,
@@ -1254,20 +1323,17 @@ const styles = StyleSheet.create({
   amountInputSymbol: {
     fontSize: 42,
     fontWeight: '700',
-    color: COLORS.textMain,
   },
   amountInput: {
     minWidth: 40,
     textAlign: 'right',
     fontSize: 42,
     fontWeight: '700',
-    color: COLORS.textMain,
     paddingVertical: 4,
   },
   amountInputHint: {
     marginTop: 6,
     fontSize: 12,
-    color: COLORS.textSecondary,
   },
   operationDetailsBlock: {
     paddingHorizontal: 20,
@@ -1292,7 +1358,6 @@ const styles = StyleSheet.create({
   },
   timeLabel: {
     fontSize: 16,
-    color: COLORS.textMain,
     fontWeight: '600',
   },
   compactTimePickerWrapper: {
@@ -1308,7 +1373,6 @@ const styles = StyleSheet.create({
   timeDivider: {
     marginTop: 12,
     height: StyleSheet.hairlineWidth,
-    backgroundColor: '#E8EAEE',
   },
   operationFieldRow: {
     flexDirection: 'row',
@@ -1317,20 +1381,16 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     minHeight: 52,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E8EAEE',
   },
   operationFieldLabel: {
     fontSize: 18,
-    color: '#9CA3AF',
   },
   operationFieldValue: {
     fontSize: 18,
-    color: COLORS.textMain,
   },
   operationFieldValueMuted: {
     fontSize: 18,
     lineHeight: 22,
-    color: '#B0B3B8',
   },
   operationFieldValueWithIcon: {
     flexDirection: 'row',
@@ -1346,7 +1406,6 @@ const styles = StyleSheet.create({
   },
   operationFieldInput: {
     fontSize: 18,
-    color: COLORS.textMain,
     textAlign: 'right',
     minWidth: 120,
     paddingVertical: 4,
@@ -1354,17 +1413,14 @@ const styles = StyleSheet.create({
   operationPrimaryButton: {
     marginBottom: 12,
     marginHorizontal: 14,
-    backgroundColor: COLORS.primary,
     borderRadius: 18,
     paddingVertical: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
-    shadowOpacity: 0.08,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
   },
   operationPrimaryButtonText: {
     color: '#FFFFFF',
@@ -1384,15 +1440,12 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(43,175,140,0.2)',
-    backgroundColor: 'rgba(43,175,140,0.08)',
   },
   tagBadgeIcon: {
     marginRight: 6,
   },
   tagBadgeText: {
     fontSize: 13,
-    color: COLORS.textMain,
     fontWeight: '600',
   },
   operationActionsGrid: {
@@ -1405,7 +1458,6 @@ const styles = StyleSheet.create({
   },
   operationActionPill: {
     width: '48%',
-    backgroundColor: '#F6F6F8',
     borderRadius: 16,
     paddingVertical: 14,
     paddingHorizontal: 14,
@@ -1420,14 +1472,7 @@ const styles = StyleSheet.create({
   },
   operationActionText: {
     fontSize: 16,
-    color: COLORS.primary,
     fontWeight: '600',
-  },
-  operationActionPillDisabled: {
-    backgroundColor: '#F0F1F3',
-  },
-  operationActionTextDisabled: {
-    color: '#C3C5CD',
   },
   operationActionIconElementDisabled: {
     opacity: 0.5,
@@ -1439,8 +1484,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#F8F9FB',
   },
   photoPreviewImage: {
     width: '100%',

@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Stack, useNavigation, useRouter } from 'expo-router';
+import { Stack, useNavigation } from 'expo-router';
 import {
   ActivityIndicator,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -12,6 +13,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import { useTransactionDraft } from '../../../../../src/context/_TransactionDraftContext';
 import { apiRequest } from '../../../../../src/api/client';
+import { useThemeColors } from '../../../../../src/theme/useThemeColors';
 
 type TagDto = {
   id: number;
@@ -19,19 +21,18 @@ type TagDto = {
   color?: string | null;
 };
 
-const COLORS = {
-  textMain: '#212121',
-  textSecondary: '#757575',
-  purple: '#2BAF8C',
-};
+const DEFAULT_ACCENT = '#2BAF8C';
 
 export default function TransactionTagsScreen() {
-  const router = useRouter();
   const navigation = useNavigation();
+  const colors = useThemeColors();
   const { draft, toggleTag } = useTransactionDraft();
   const [tags, setTags] = useState<TagDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+
+  const accentColor = colors.income || DEFAULT_ACCENT;
+  const defaultTagColor = colors.isDark ? '#64748B' : '#D1D5DB';
 
   useEffect(() => {
     const load = async () => {
@@ -57,15 +58,20 @@ export default function TransactionTagsScreen() {
 
   useEffect(() => {
     navigation.setOptions({
+      headerTintColor: colors.textMain,
+      headerTitleStyle: { color: colors.textMain },
       headerSearchBarOptions: {
         placeholder: 'Поиск',
         placement: 'stacked',
         hideWhenScrolling: false,
+        textColor: colors.textMain,
+        headerIconColor: colors.textSecondary,
+        hintTextColor: colors.textSecondary,
         onChangeText: ({ nativeEvent }: any) => setSearch(nativeEvent.text),
         onCancelButtonPress: () => setSearch(''),
       },
     });
-  }, [navigation]);
+  }, [navigation, colors.textMain, colors.textSecondary]);
 
   const normalizedSearch = search.trim().toLowerCase();
   const filteredTags = useMemo(() => {
@@ -78,7 +84,8 @@ export default function TransactionTagsScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.baseSurface }]}>
+      <StatusBar barStyle={colors.isDark ? 'light-content' : 'dark-content'} />
       <Stack.Screen
         options={{
           title: 'Метки',
@@ -87,18 +94,20 @@ export default function TransactionTagsScreen() {
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={COLORS.purple} />
+          <ActivityIndicator size="large" color={accentColor} />
         </View>
       ) : (
         <ScrollView
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           contentInsetAdjustmentBehavior="automatic"
-          contentContainerStyle={{ paddingTop: 0, paddingBottom: 0 }}
+          contentContainerStyle={styles.scrollContent}
         >
           {filteredTags.length === 0 ? (
-            <View style={{ paddingHorizontal: 20, paddingVertical: 12 }}>
-              <Text style={{ color: COLORS.textSecondary }}>Нет доступных меток</Text>
+            <View style={styles.emptyWrap}>
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                Нет доступных меток
+              </Text>
             </View>
           ) : (
             filteredTags.map(tag => {
@@ -106,7 +115,7 @@ export default function TransactionTagsScreen() {
               return (
                 <TouchableOpacity
                   key={tag.id}
-                  style={styles.row}
+                  style={[styles.row, { borderBottomColor: colors.divider }]}
                   activeOpacity={0.7}
                   onPress={() => handleToggle(tag)}
                 >
@@ -114,15 +123,17 @@ export default function TransactionTagsScreen() {
                     <FontAwesome6
                       name="tag"
                       size={18}
-                      color={tag.color || '#D1D5DB'}
+                      color={tag.color || defaultTagColor}
                     />
-                    <Text style={styles.rowText}>{tag.name}</Text>
+                    <Text style={[styles.rowText, { color: colors.textMain }]}>
+                      {tag.name}
+                    </Text>
                   </View>
                   <View style={styles.rowRight}>
                     <Ionicons
                       name="checkmark-circle"
                       size={22}
-                      color={COLORS.purple}
+                      color={accentColor}
                       style={{ opacity: isSelected ? 1 : 0 }}
                     />
                   </View>
@@ -139,12 +150,22 @@ export default function TransactionTagsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
   },
   center: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  scrollContent: {
+    paddingTop: 0,
+    paddingBottom: 24,
+  },
+  emptyWrap: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  emptyText: {
+    fontSize: 15,
   },
   row: {
     flexDirection: 'row',
@@ -153,7 +174,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#ECEFF1',
   },
   rowLeft: {
     flex: 1,
@@ -164,7 +184,6 @@ const styles = StyleSheet.create({
   },
   rowText: {
     fontSize: 17,
-    color: COLORS.textMain,
   },
   rowRight: {
     width: 32,

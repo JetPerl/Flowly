@@ -64,15 +64,20 @@ export const AvatarProvider = ({ children }: { children: ReactNode }) => {
     await setAvatar(null);
   }, [setAvatar]);
 
+  const avatarSource = useMemo(
+    () => (avatarUri ? { uri: avatarUri } : DEFAULT_AVATAR),
+    [avatarUri],
+  );
+
   const value = useMemo<AvatarContextValue>(
     () => ({
       avatarUri,
-      avatarSource: avatarUri ? { uri: avatarUri } : DEFAULT_AVATAR,
+      avatarSource,
       setAvatar,
       resetAvatar,
       loading,
     }),
-    [avatarUri, setAvatar, resetAvatar, loading],
+    [avatarUri, avatarSource, setAvatar, resetAvatar, loading],
   );
 
   return <AvatarContext.Provider value={value}>{children}</AvatarContext.Provider>;

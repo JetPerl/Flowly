@@ -2,6 +2,7 @@ import React, {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from 'react';
@@ -97,7 +98,15 @@ export const TransactionDraftProvider = ({ children }: { children: React.ReactNo
     [mainCurrency],
   );
 
-  const [draft, setDraft] = useState<TransactionDraft>(buildInitialDraft(defaultCurrency));
+  const [draft, setDraft] = useState<TransactionDraft>(() => buildInitialDraft(defaultCurrency));
+
+  useEffect(() => {
+    setDraft(prev => {
+      if (prev.account?.currency || prev.amount) return prev;
+      if (prev.currency === defaultCurrency) return prev;
+      return { ...prev, currency: defaultCurrency };
+    });
+  }, [defaultCurrency]);
 
   const resetDraft = useCallback(() => {
     setDraft(buildInitialDraft(defaultCurrency));

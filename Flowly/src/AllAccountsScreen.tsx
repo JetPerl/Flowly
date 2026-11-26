@@ -31,15 +31,9 @@ import {
   type HistorySection,
 } from './utils';
 import type { AccountResponse } from './types';
+import { useThemeColors } from './theme/useThemeColors';
 
-const COLORS = {
-  bg: '#FFFFFF',
-  textMain: '#212121',
-  textSecondary: '#757575',
-  primary: '#2BAF8C',
-  border: '#D5D8DF',
-  muted: '#F3F4F6',
-};
+const DEFAULT_ACCENT = '#2BAF8C';
 
 const formatSectionDateRu = (date: Date): string => {
   const formatted = new Intl.DateTimeFormat('ru-RU', {
@@ -67,6 +61,7 @@ const formatDateTimeCommaRu = (date: Date): string => {
 const AllAccountsScreen = () => {
   const router = useRouter();
   const navigation = useNavigation();
+  const colors = useThemeColors();
   const { mainCurrency } = useMainCurrency();
   const MAIN_CURRENCY = (mainCurrency || DEFAULT_MAIN_CURRENCY).toUpperCase();
   const mainCurrencySymbol = getCurrencySymbol(MAIN_CURRENCY);
@@ -98,7 +93,7 @@ const AllAccountsScreen = () => {
       .map(([dateKey, groupOps]) => {
         const parsedDate = dateKey !== 'unknown' ? new Date(dateKey) : new Date();
         const mappedItems = groupOps.map(op => {
-          const item = mapApiOperationToHistoryItem(op, accountsById, COLORS.primary);
+          const item = mapApiOperationToHistoryItem(op, accountsById, DEFAULT_ACCENT);
           const rawDate: string | undefined =
             op?.dateTime || op?.date_time || op?.date || op?.created_at;
           const d = rawDate ? new Date(rawDate) : null;
@@ -108,7 +103,7 @@ const AllAccountsScreen = () => {
           };
         });
 
-        const mergedItems = mergeTransferItems(mappedItems, COLORS.primary).sort((x, y) => {
+        const mergedItems = mergeTransferItems(mappedItems, DEFAULT_ACCENT).sort((x, y) => {
           const ax =
             typeof x.timestamp === 'number' && !Number.isNaN(x.timestamp)
               ? x.timestamp
@@ -211,15 +206,20 @@ const AllAccountsScreen = () => {
 
   useEffect(() => {
     navigation.setOptions({
+      headerTintColor: colors.textMain,
+      headerTitleStyle: { color: colors.textMain },
       headerSearchBarOptions: {
         placeholder: 'Поиск',
         placement: 'stacked',
         hideWhenScrolling: true,
+        textColor: colors.textMain,
+        headerIconColor: colors.textSecondary,
+        hintTextColor: colors.textSecondary,
         onChangeText: ({ nativeEvent }: any) => setSearchQuery(nativeEvent.text),
         onCancelButtonPress: () => setSearchQuery(''),
       },
     });
-  }, [navigation]);
+  }, [navigation, colors.textMain, colors.textSecondary]);
 
   const hasQuery = searchQuery.trim().length > 0;
 
@@ -303,19 +303,25 @@ const AllAccountsScreen = () => {
     [accountsById, router],
   );
 
+  const pillBg = colors.isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(33, 33, 33, 0.06)';
+
   const renderSectionHeader = ({ section }: { section: HistorySection & { data: HistoryItem[] } }) => (
-    <View style={styles.sectionHeader}>
+    <View style={[styles.sectionHeader, { backgroundColor: colors.baseSurface }]}>
       <View style={styles.sectionHeaderRow}>
         <View style={styles.sectionHeaderContent}>
-          <Text style={styles.sectionTitle}>{section.dateLabel}</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textMain }]}>
+            {section.dateLabel}
+          </Text>
         </View>
         {section.totalLabel ? (
-          <View style={styles.sectionTotalPill}>
-            <Text style={styles.sectionTotalText}>{section.totalLabel}</Text>
+          <View style={[styles.sectionTotalPill, { backgroundColor: pillBg }]}>
+            <Text style={[styles.sectionTotalText, { color: colors.textSecondary }]}>
+              {section.totalLabel}
+            </Text>
           </View>
         ) : null}
       </View>
-      <View style={styles.sectionHeaderDivider} />
+      <View style={[styles.sectionHeaderDivider, { backgroundColor: colors.divider }]} />
     </View>
   );
 
@@ -335,10 +341,13 @@ const AllAccountsScreen = () => {
         onPress={() => openOperationInModal(item)}
       >
         <OperationIcon item={item} accountsById={accountsById} />
-        <View style={styles.historyContent}>
+        <View style={[styles.historyContent, { borderBottomColor: colors.divider }]}>
           <View style={styles.historyTitleRow}>
             <View style={styles.historyTitleLeft}>
-              <Text style={styles.historyTitle} numberOfLines={1}>
+              <Text
+                style={[styles.historyTitle, { color: colors.textMain }]}
+                numberOfLines={1}
+              >
                 {title}
               </Text>
               <View style={styles.historyFlags}>
@@ -346,7 +355,7 @@ const AllAccountsScreen = () => {
                   <Ionicons
                     name="camera"
                     size={14}
-                    color={COLORS.textSecondary}
+                    color={colors.textSecondary}
                     style={styles.historyFlagIcon}
                   />
                 ) : null}
@@ -354,7 +363,7 @@ const AllAccountsScreen = () => {
                   <MaterialCommunityIcons
                     name="pin"
                     size={14}
-                    color={COLORS.textSecondary}
+                    color={colors.textSecondary}
                     style={styles.historyFlagIcon}
                   />
                 ) : null}
@@ -362,10 +371,10 @@ const AllAccountsScreen = () => {
             </View>
             <Text
               style={[
-                item.type === 'income'
-                  ? styles.historyAmountIncome
-                  : styles.historyAmountNegative,
                 styles.historyTitleAmount,
+                {
+                  color: item.type === 'income' ? colors.income : colors.expense,
+                },
               ]}
               numberOfLines={1}
             >
@@ -373,7 +382,10 @@ const AllAccountsScreen = () => {
             </Text>
           </View>
           <View style={styles.historyMetaRow}>
-            <Text style={styles.historyMeta} numberOfLines={1}>
+            <Text
+              style={[styles.historyMeta, { color: colors.textSecondary }]}
+              numberOfLines={1}
+            >
               {item.dateTime || ''}
             </Text>
             {isTransfer && transferToLabel ? (
@@ -381,20 +393,26 @@ const AllAccountsScreen = () => {
                 style={[
                   styles.historyMetaAmount,
                   styles.historyMetaAmountBold,
-                  styles.historyAmountIncome,
+                  { color: colors.income },
                 ]}
                 numberOfLines={1}
               >
                 {transferToLabel}
               </Text>
             ) : (
-              <Text style={styles.historyMetaAmount} numberOfLines={1}>
+              <Text
+                style={[styles.historyMetaAmount, { color: colors.textSecondary }]}
+                numberOfLines={1}
+              >
                 {item.account}
               </Text>
             )}
           </View>
           {subtitle ? (
-            <Text style={styles.historySubtitle} numberOfLines={1}>
+            <Text
+              style={[styles.historySubtitle, { color: colors.textSecondary }]}
+              numberOfLines={1}
+            >
               {subtitle}
             </Text>
           ) : null}
@@ -407,32 +425,43 @@ const AllAccountsScreen = () => {
     if (loading) {
       return (
         <View style={styles.emptyState}>
-          <ActivityIndicator size="small" color={COLORS.primary} />
-          <Text style={styles.emptyText}>Загружаем историю...</Text>
+          <ActivityIndicator size="small" color={colors.income} />
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+            Загружаем историю...
+          </Text>
         </View>
       );
     }
     if (hasQuery) {
       return (
         <View style={styles.emptyState}>
-          <Ionicons name="search" size={28} color={COLORS.textSecondary} />
-          <Text style={styles.emptyText}>Ничего не найдено</Text>
+          <Ionicons name="search" size={28} color={colors.textSecondary} />
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+            Ничего не найдено
+          </Text>
         </View>
       );
     }
     return (
       <View style={styles.emptyState}>
-        <View style={styles.historyEmptyRowIcon}>
-          <Ionicons name="calendar-outline" size={24} color={COLORS.textSecondary} />
+        <View
+          style={[
+            styles.historyEmptyRowIcon,
+            { backgroundColor: colors.iconSurface },
+          ]}
+        >
+          <Ionicons name="calendar-outline" size={24} color={colors.textSecondary} />
         </View>
-        <Text style={styles.emptyText}>Операции отсутствуют</Text>
+        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+          Операции отсутствуют
+        </Text>
       </View>
     );
   };
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+    <View style={[styles.container, { backgroundColor: colors.baseSurface }]}>
+      <StatusBar barStyle={colors.isDark ? 'light-content' : 'dark-content'} />
       <SectionList
         sections={sectionsForList}
         keyExtractor={(item, index) => `${item.id}-${index}`}
@@ -452,8 +481,8 @@ const AllAccountsScreen = () => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor={COLORS.primary}
-            colors={[COLORS.primary]}
+            tintColor={colors.income}
+            colors={[colors.income]}
           />
         }
         ListEmptyComponent={renderListEmpty}
@@ -465,7 +494,6 @@ const AllAccountsScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.bg,
   },
   listContent: {
     paddingHorizontal: 16,
@@ -474,7 +502,6 @@ const styles = StyleSheet.create({
   sectionHeader: {
     paddingTop: 10,
     paddingBottom: 4,
-    backgroundColor: COLORS.bg,
     flexDirection: 'column',
   },
   sectionHeaderRow: {
@@ -490,22 +517,18 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 17,
     fontWeight: '600',
-    color: COLORS.textMain,
   },
   sectionTotalPill: {
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 14,
-    backgroundColor: 'rgba(33, 33, 33, 0.06)',
   },
   sectionTotalText: {
     fontSize: 14,
     fontWeight: '500',
-    color: COLORS.textSecondary,
   },
   sectionHeaderDivider: {
-    height: 1,
-    backgroundColor: COLORS.border,
+    height: StyleSheet.hairlineWidth,
     marginTop: 4,
   },
   sectionDivider: {
@@ -519,8 +542,7 @@ const styles = StyleSheet.create({
   historyContent: {
     flex: 1,
     marginLeft: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     paddingBottom: 12,
   },
   historyTitleRow: {
@@ -540,7 +562,6 @@ const styles = StyleSheet.create({
   historyTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.textMain,
     flexShrink: 1,
     minWidth: 0,
   },
@@ -561,12 +582,6 @@ const styles = StyleSheet.create({
     maxWidth: '42%',
     textAlign: 'right',
   },
-  historyAmountIncome: {
-    color: COLORS.primary,
-  },
-  historyAmountNegative: {
-    color: COLORS.textMain,
-  },
   historyMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -574,12 +589,10 @@ const styles = StyleSheet.create({
   },
   historyMeta: {
     fontSize: 13,
-    color: COLORS.textSecondary,
     flex: 1,
   },
   historyMetaAmount: {
     fontSize: 13,
-    color: COLORS.textSecondary,
     marginLeft: 10,
     flexShrink: 0,
   },
@@ -588,14 +601,12 @@ const styles = StyleSheet.create({
   },
   historySubtitle: {
     fontSize: 13,
-    color: COLORS.textSecondary,
     marginTop: 8,
   },
   historyEmptyRowIcon: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: COLORS.muted,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -608,7 +619,6 @@ const styles = StyleSheet.create({
   emptyText: {
     marginTop: 8,
     fontSize: 15,
-    color: COLORS.textSecondary,
   },
 });
 

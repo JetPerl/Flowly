@@ -32,10 +32,7 @@ const FILL_ONLY_ICONS = new Set<CategoryIconName>([
   'unconsidered-spending',
 ]);
 
-// 1. Допустимые иконки счетов
-const ACCOUNT_ICONS = new Set<string>(['wallet', 'card', 'crypto', 'target']);
-
-// 2. Синонимы иконок из базы данных к именам в приложении
+// Синонимы иконок из базы данных к именам в приложении
 const ICON_NAME_MAP: Record<string, string> = {
   'credit-card': 'card',
 };
@@ -59,8 +56,9 @@ const CategoryIcon: React.FC<Props> = ({
   const normalizedName = sanitizeCategoryIconName(mappedName);
 
   const tintColor = normalizeColor(color);
-  const isFillOnlyIcon = normalizedName ? FILL_ONLY_ICONS.has(normalizedName as CategoryIconName) : false;
-  const isAccountIcon = normalizedName ? ACCOUNT_ICONS.has(normalizedName) : false;
+  const isFillOnlyIcon = normalizedName
+    ? FILL_ONLY_ICONS.has(normalizedName as CategoryIconName)
+    : false;
   const shouldApplyFill = isFillOnlyIcon;
   const IconComponent = normalizedName ? resolveCategoryIcon(normalizedName) : undefined;
   const iconModule = normalizedName
@@ -76,7 +74,7 @@ const CategoryIcon: React.FC<Props> = ({
       const resolved = Image.resolveAssetSource(iconModule);
       iconUri = resolved?.uri || null;
     } catch {
-      // ignore resolution errors and fall back to a plain square
+      // ignore resolution errors and fall back to a plain circle
     }
   }
 
@@ -126,8 +124,8 @@ const CategoryIcon: React.FC<Props> = ({
         <IconComponent
           width={innerSize}
           height={innerSize}
-          color={isAccountIcon ? tintColor : undefined}
-          stroke={tintColor}
+          color={tintColor}
+          stroke={shouldApplyFill ? undefined : tintColor}
           fill={shouldApplyFill ? tintColor : 'none'}
         />
       ) : iconUri ? (
@@ -135,13 +133,18 @@ const CategoryIcon: React.FC<Props> = ({
           uri={iconUri}
           width={innerSize}
           height={innerSize}
-          color={isAccountIcon ? tintColor : undefined}
-          stroke={tintColor}
+          color={tintColor}
+          stroke={shouldApplyFill ? undefined : tintColor}
           fill={shouldApplyFill ? tintColor : 'none'}
           onError={(err: any) => {
             if (__DEV__) {
               const nativeEvent = err?.nativeEvent;
-              console.warn('[CategoryIcon] SvgUri error for', normalizedName, iconUri, nativeEvent || err);
+              console.warn(
+                '[CategoryIcon] SvgUri error for',
+                normalizedName,
+                iconUri,
+                nativeEvent || err,
+              );
             }
           }}
         />

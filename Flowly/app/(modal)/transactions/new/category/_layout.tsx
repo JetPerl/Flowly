@@ -1,9 +1,12 @@
 import React from 'react';
 import { router, Stack } from 'expo-router';
-import { Pressable } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useThemeColors } from '../../../../../src/theme/useThemeColors';
 
 export default function CategoryLayout() {
+  const colors = useThemeColors();
+
   return (
     <Stack
       id="category-stack"
@@ -13,16 +16,22 @@ export default function CategoryLayout() {
         headerShown: true,
         headerTransparent: true,
         headerShadowVisible: false,
+        headerTintColor: colors.textMain,
+        headerTitleStyle: { color: colors.textMain },
+        contentStyle: { backgroundColor: colors.baseSurface },
         headerSearchBarOptions: {
           placeholder: 'Поиск',
           placement: 'stacked',
           hideWhenScrolling: false,
+          textColor: colors.textMain,
+          headerIconColor: colors.textSecondary,
+          hintTextColor: colors.textSecondary,
         },
-        // iOS native navigation style
 
         headerLeft: () => (
           <Pressable
             onPress={() => router.back()}
+            hitSlop={8}
             style={{
               width: 32,
               height: 33,
@@ -34,12 +43,12 @@ export default function CategoryLayout() {
             <Ionicons
               name="close-outline"
               size={33}
-              color="black"
+              color={colors.textMain}
             />
           </Pressable>
         ),
         headerRight: () => (
-          <Pressable
+          <View
             style={{
               flexDirection: 'row',
               alignItems: 'center',
@@ -48,6 +57,7 @@ export default function CategoryLayout() {
           >
             <Pressable
               onPress={() => router.push('/transactions/new/category-new')}
+              hitSlop={8}
               style={{
                 width: 42,
                 height: 32,
@@ -59,12 +69,13 @@ export default function CategoryLayout() {
               <Ionicons
                 name="add-outline"
                 size={32}
-                color="black"
+                color={colors.textMain}
               />
             </Pressable>
 
             <Pressable
               onPress={() => router.push('/transactions/new/account')}
+              hitSlop={8}
               style={{
                 width: 22,
                 height: 32,
@@ -75,12 +86,10 @@ export default function CategoryLayout() {
               <Ionicons
                 name="pencil-outline"
                 size={22}
-                color="black"
+                color={colors.textMain}
               />
             </Pressable>
-            
-          </Pressable>
-          
+          </View>
         ),
       }}
     />

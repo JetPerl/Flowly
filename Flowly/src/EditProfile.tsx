@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Image, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
 import { useAvatar } from './avatar/AvatarContext';
+import { useThemeColors, type ThemeColors } from './theme/useThemeColors';
 
 type FieldProps = {
   label: string;
@@ -11,25 +12,44 @@ type FieldProps = {
   onChangeText: (text: string) => void;
   keyboardType?: 'default' | 'email-address' | 'phone-pad' | 'numeric';
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
+  colors: ThemeColors;
 };
 
-const Field = ({ label, value, placeholder, onChangeText, keyboardType, autoCapitalize }: FieldProps) => (
+const Field = ({
+  label,
+  value,
+  placeholder,
+  onChangeText,
+  keyboardType,
+  autoCapitalize,
+  colors,
+}: FieldProps) => (
   <View style={styles.field}>
-    <Text style={styles.label}>{label}</Text>
+    <Text style={[styles.label, { color: colors.textMain }]}>{label}</Text>
     <TextInput
-      style={styles.input}
+      style={[
+        styles.input,
+        {
+          borderColor: colors.border,
+          backgroundColor: colors.isDark ? colors.elevatedSurface : colors.baseSurface,
+          color: colors.textMain,
+        },
+      ]}
       value={value}
       placeholder={placeholder}
       onChangeText={onChangeText}
       keyboardType={keyboardType}
       autoCapitalize={autoCapitalize}
-      placeholderTextColor="#9CA3AF"
+      placeholderTextColor={colors.textSecondary}
+      keyboardAppearance={colors.isDark ? 'dark' : 'light'}
     />
   </View>
 );
 
 const EditProfile = () => {
   const { avatarSource } = useAvatar();
+  const colors = useThemeColors();
+
   const [name, setName] = useState('Eliasz Burnas');
   const [primaryEmail, setPrimaryEmail] = useState('ilyaburnas@gmail.com');
   const [email, setEmail] = useState('');
@@ -38,18 +58,38 @@ const EditProfile = () => {
   const [country, setCountry] = useState('');
   const [phone, setPhone] = useState('');
 
+  const cardThemeStyle = {
+    backgroundColor: colors.cardSurface,
+    borderColor: colors.border,
+    shadowOpacity: colors.isDark ? 0 : 1,
+    elevation: colors.isDark ? 0 : 2,
+  };
+
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right']}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.baseSurface }]}
+      edges={['left', 'right']}
+    >
+      <StatusBar barStyle={colors.isDark ? 'light-content' : 'dark-content'} />
       <Stack.Screen
         options={{
           title: 'Личная информация',
           headerTransparent: true,
+          headerTintColor: colors.textMain,
+          headerTitleStyle: { color: colors.textMain },
         }}
       />
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <View style={styles.card}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        contentInsetAdjustmentBehavior="automatic"
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={[styles.card, cardThemeStyle]}>
           <View style={styles.avatarRow}>
-            <Image source={avatarSource} style={styles.avatar} />
+            <Image
+              source={avatarSource}
+              style={[styles.avatar, { backgroundColor: colors.iconSurface }]}
+            />
             <View style={styles.avatarInputs}>
               <Field
                 label="Имя"
@@ -57,6 +97,7 @@ const EditProfile = () => {
                 onChangeText={setName}
                 placeholder="Введите имя"
                 autoCapitalize="words"
+                colors={colors}
               />
               <Field
                 label="Email"
@@ -65,12 +106,13 @@ const EditProfile = () => {
                 placeholder="Введите email"
                 keyboardType="email-address"
                 autoCapitalize="none"
+                colors={colors}
               />
             </View>
           </View>
         </View>
 
-        <View style={styles.card}>
+        <View style={[styles.card, cardThemeStyle]}>
           <Field
             label="Email"
             value={email}
@@ -78,6 +120,7 @@ const EditProfile = () => {
             placeholder="Введите email"
             keyboardType="email-address"
             autoCapitalize="none"
+            colors={colors}
           />
           <Field
             label="Дата рождения"
@@ -85,6 +128,7 @@ const EditProfile = () => {
             onChangeText={setBirthDate}
             placeholder="ДД.ММ.ГГГГ"
             keyboardType="numeric"
+            colors={colors}
           />
           <Field
             label="Пол"
@@ -92,6 +136,7 @@ const EditProfile = () => {
             onChangeText={setGender}
             placeholder="Укажите пол"
             autoCapitalize="words"
+            colors={colors}
           />
           <Field
             label="Страна проживания"
@@ -99,6 +144,7 @@ const EditProfile = () => {
             onChangeText={setCountry}
             placeholder="Укажите страну"
             autoCapitalize="words"
+            colors={colors}
           />
           <Field
             label="Номер телефона"
@@ -107,6 +153,7 @@ const EditProfile = () => {
             placeholder="+375 (xx) xxx-xx-xx"
             keyboardType="phone-pad"
             autoCapitalize="none"
+            colors={colors}
           />
         </View>
       </ScrollView>
@@ -114,14 +161,9 @@ const EditProfile = () => {
   );
 };
 
-const CARD_BORDER = '#E5E7EB';
-const TEXT_MAIN = '#111827';
-const INPUT_BG = '#F9FAFB';
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
   },
   content: {
     paddingHorizontal: 16,
@@ -130,16 +172,13 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   card: {
-    backgroundColor: '#fff',
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: CARD_BORDER,
     padding: 16,
+    gap: 12,
     shadowColor: 'rgba(0, 0, 0, 0.05)',
-    shadowOpacity: 1,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
   },
   avatarRow: {
     flexDirection: 'row',
@@ -150,7 +189,6 @@ const styles = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 24,
-    backgroundColor: '#f5f5f5',
   },
   avatarInputs: {
     flex: 1,
@@ -161,18 +199,14 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    color: TEXT_MAIN,
     fontWeight: '500',
   },
   input: {
     height: 44,
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: CARD_BORDER,
-    backgroundColor: INPUT_BG,
     paddingHorizontal: 12,
     fontSize: 16,
-    color: TEXT_MAIN,
   },
 });
 

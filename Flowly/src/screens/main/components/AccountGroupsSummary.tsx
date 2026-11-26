@@ -1,6 +1,10 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useThemeColors } from '../../../theme/useThemeColors';
+import { SurfaceCard } from '../../../components/SurfaceCard';
+
+export type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
 export type AccountGroupSummaryItem = {
   key: string;
@@ -8,7 +12,7 @@ export type AccountGroupSummaryItem = {
   hint?: string;
   total: number;
   color: string;
-  icon: string;
+  icon: IoniconsName;
 };
 
 type AccountGroupsSummaryProps = {
@@ -26,65 +30,141 @@ export const AccountGroupsSummary: React.FC<AccountGroupsSummaryProps> = ({
   groups,
   formatCurrency,
 }) => {
+  const colors = useThemeColors();
+  const hasValidBalance =
+    typeof totalBalance === 'number' && Number.isFinite(totalBalance);
+  const hasGroups = groups.length > 0;
+  const dividerColor = colors.isDark
+    ? 'rgba(255, 255, 255, 0.08)'
+    : colors.divider;
+
   return (
-    <View style={styles.card}>
-      <Text style={styles.label}>Общее состояние</Text>
-      <Text style={styles.value}>
-        {totalBalance !== null
+    <SurfaceCard contentStyle={styles.cardContent}>
+      <Text style={[styles.label, { color: colors.textSecondary }]}>
+        Общее состояние
+      </Text>
+      <Text
+        style={[
+          styles.value,
+          !hasGroups && styles.valueNoGroups,
+          { color: colors.textMain },
+        ]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+      >
+        {hasValidBalance
           ? formatCurrency(totalBalance, true, currency)
           : `— ${currencySymbol}`}
       </Text>
-      <View style={styles.groups}>
-        {groups.map(group => (
-          <View key={group.key} style={styles.row}>
-            <View style={[styles.iconCircle, { backgroundColor: group.color }]}>
-              <Ionicons name={group.icon as any} size={20} color="#FFFFFF" />
-            </View>
-            <View style={styles.textBlock}>
-              <Text style={styles.groupTitle}>{group.label}</Text>
-              {group.hint ? (
-                <Text style={styles.groupHint} numberOfLines={1}>
-                  {group.hint}
+
+      {hasGroups ? (
+        <View style={[styles.groups, { borderTopColor: dividerColor }]}>
+          {groups.map((group) => (
+            <View key={group.key} style={styles.row}>
+              <View
+                style={[
+                  styles.iconCircle,
+                  {
+                    backgroundColor: colors.isDark
+                      ? `${group.color}24`
+                      : `${group.color}1A`,
+                  },
+                ]}
+              >
+                <Ionicons name={group.icon} size={20} color={group.color} />
+              </View>
+
+              <View style={styles.textBlock}>
+                <Text
+                  style={[styles.groupTitle, { color: colors.textMain }]}
+                  numberOfLines={1}
+                >
+                  {group.label}
                 </Text>
-              ) : null}
+                {group.hint ? (
+                  <Text
+                    style={[styles.groupHint, { color: colors.textSecondary }]}
+                    numberOfLines={1}
+                  >
+                    {group.hint}
+                  </Text>
+                ) : null}
+              </View>
+
+              <Text
+                style={[styles.groupValue, { color: colors.textMain }]}
+                numberOfLines={1}
+              >
+                {formatCurrency(group.total, true, currency)}
+              </Text>
             </View>
-            <Text style={styles.groupValue}>
-              {formatCurrency(group.total, true, currency)}
-            </Text>
-          </View>
-        ))}
-      </View>
-    </View>
+          ))}
+        </View>
+      ) : null}
+    </SurfaceCard>
   );
 };
 
 const styles = StyleSheet.create({
-  card: {
-    marginTop: 0,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+  cardContent: {
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 4,
+    paddingVertical: 16,
   },
-  label: { fontSize: 14, color: '#757575', marginBottom: 4 },
-  value: { fontSize: 26, fontWeight: '700', color: '#212121', marginBottom: 12 },
-  groups: { gap: 12 },
-  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 2 },
+  label: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  value: {
+    fontSize: 26,
+    lineHeight: 32,
+    fontWeight: '700',
+    marginBottom: 14,
+    fontVariant: ['tabular-nums'],
+  },
+  valueNoGroups: {
+    marginBottom: 0,
+  },
+  groups: {
+    gap: 12,
+    paddingTop: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 2,
+  },
   iconCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    flexShrink: 0,
   },
-  textBlock: { flex: 1, marginRight: 12 },
-  groupTitle: { fontSize: 16, fontWeight: '600', color: '#212121' },
-  groupHint: { fontSize: 13, color: '#757575', marginTop: 2 },
-  groupValue: { fontSize: 15, fontWeight: '600', color: '#212121' },
+  textBlock: {
+    flex: 1,
+    minWidth: 0,
+  },
+  groupTitle: {
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '600',
+  },
+  groupHint: {
+    fontSize: 13,
+    lineHeight: 17,
+    marginTop: 2,
+  },
+  groupValue: {
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '700',
+    flexShrink: 0,
+    textAlign: 'right',
+    fontVariant: ['tabular-nums'],
+  },
 });

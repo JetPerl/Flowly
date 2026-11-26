@@ -7,6 +7,7 @@ import {
   Text,
   ScrollView,
   Alert,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -15,9 +16,11 @@ import { useAvatar } from './avatar/AvatarContext';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useMainCurrency } from './currency/CurrencyContext';
+import { useThemeColors } from './theme/useThemeColors';
 
 const ProfileScreen = () => {
   const router = useRouter();
+  const colors = useThemeColors();
   const { avatarSource, setAvatar, resetAvatar } = useAvatar();
   const { mainCurrency } = useMainCurrency();
 
@@ -60,83 +63,126 @@ const ProfileScreen = () => {
     ]);
   }, [handlePickAvatar, handleRemoveAvatar]);
 
+  const sectionCardStyle = {
+    backgroundColor: colors.cardSurface,
+    borderColor: colors.border,
+    shadowOpacity: colors.isDark ? 0 : 0.05,
+    elevation: colors.isDark ? 0 : 3,
+  };
+
+  const iconTint = colors.textSecondary;
+
   return (
-    <SafeAreaView style={styles.container} edges={['left', 'right']}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.baseSurface }]}
+      edges={['left', 'right']}
+    >
+      <StatusBar barStyle={colors.isDark ? 'light-content' : 'dark-content'} />
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.hero}>
           <TouchableOpacity
-            style={styles.avatarWrapper}
+            style={[
+              styles.avatarWrapper,
+              {
+                borderColor: colors.cardSurface,
+                backgroundColor: colors.cardSurface,
+                shadowOpacity: colors.isDark ? 0 : 0.15,
+                elevation: colors.isDark ? 0 : 6,
+              },
+            ]}
             activeOpacity={0.9}
             onPress={openAvatarAlert}
           >
-            <Image source={avatarSource} style={styles.avatar} />
+            <Image
+              source={avatarSource}
+              style={[styles.avatar, { backgroundColor: colors.iconSurface }]}
+            />
           </TouchableOpacity>
-          <Text style={styles.userName}>Eliasz Burnas</Text>
-          <Text style={styles.userEmail}>ilyaburnas@gmail.com</Text>
+          <Text style={[styles.userName, { color: colors.textMain }]}>Eliasz Burnas</Text>
+          <Text style={[styles.userEmail, { color: colors.textSecondary }]}>
+            ilyaburnas@gmail.com
+          </Text>
         </View>
 
-        <View style={styles.listSection}>
+        <View style={[styles.listSection, sectionCardStyle]}>
           <TouchableOpacity style={styles.row} onPress={() => router.push('/profile/currency-list')}>
-            <MaterialIcons name="currency-exchange" size={22} style={styles.switchIcon} />
-            <Text style={styles.rowText}>Основная валюта</Text>
-            <Text style={styles.rowValue}>{mainCurrency?.toUpperCase()}</Text>
+            <MaterialIcons
+              name="currency-exchange"
+              size={22}
+              color={iconTint}
+              style={styles.vectorIcon}
+            />
+            <Text style={[styles.rowText, { color: colors.textMain }]}>Основная валюта</Text>
+            <Text style={[styles.rowValue, { color: colors.textSecondary }]}>
+              {mainCurrency?.toUpperCase()}
+            </Text>
           </TouchableOpacity>
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
           <TouchableOpacity style={styles.row} onPress={() => router.push('/profile/edit-profile')}>
-            <Text style={styles.switchIcon}>👤</Text>
-            <Text style={styles.rowText}>Личная информация</Text>
+            <Text style={[styles.switchIcon, { color: iconTint }]}>👤</Text>
+            <Text style={[styles.rowText, { color: colors.textMain }]}>Личная информация</Text>
           </TouchableOpacity>
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
           <TouchableOpacity style={styles.row} onPress={() => router.push('/profile/security')}>
-            <MaterialCommunityIcons name="shield-check" size={22} style={styles.switchIcon} />
-            <Text style={styles.rowText}>Вход и безопасность</Text>
+            <MaterialCommunityIcons
+              name="shield-check"
+              size={22}
+              color={iconTint}
+              style={styles.vectorIcon}
+            />
+            <Text style={[styles.rowText, { color: colors.textMain }]}>Вход и безопасность</Text>
           </TouchableOpacity>
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
           <TouchableOpacity style={styles.row}>
-            <Text style={styles.switchIcon}>🔔</Text>
-            <Text style={styles.rowText}>Напоминания</Text>
+            <Text style={[styles.switchIcon, { color: iconTint }]}>🔔</Text>
+            <Text style={[styles.rowText, { color: colors.textMain }]}>Напоминания</Text>
           </TouchableOpacity>
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
           <TouchableOpacity style={styles.row}>
-            <Text style={styles.switchIcon}>💬</Text>
-            <Text style={styles.rowText}>Язык приложения</Text>
+            <Text style={[styles.switchIcon, { color: iconTint }]}>💬</Text>
+            <Text style={[styles.rowText, { color: colors.textMain }]}>Язык приложения</Text>
           </TouchableOpacity>
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
           <TouchableOpacity style={styles.row}>
-            <Text style={styles.switchIcon}>❓</Text>
-            <Text style={styles.rowText}>Помощь</Text>
+            <Text style={[styles.switchIcon, { color: iconTint }]}>❓</Text>
+            <Text style={[styles.rowText, { color: colors.textMain }]}>Помощь</Text>
           </TouchableOpacity>
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
           <TouchableOpacity style={styles.row}>
-            <Text style={styles.switchIcon}>🔔</Text>
-            <Text style={styles.rowText}>Включить синхронизацию</Text>
+            <Text style={[styles.switchIcon, { color: iconTint }]}>🔔</Text>
+            <Text style={[styles.rowText, { color: colors.textMain }]}>
+              Включить синхронизацию
+            </Text>
           </TouchableOpacity>
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
           <TouchableOpacity style={styles.row}>
-            <Text style={styles.switchIcon}>㊢</Text>
-            <Text style={styles.rowText}>Резервные копии</Text>
+            <Text style={[styles.switchIcon, { color: iconTint }]}>㊢</Text>
+            <Text style={[styles.rowText, { color: colors.textMain }]}>Резервные копии</Text>
           </TouchableOpacity>
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
           <TouchableOpacity style={styles.row}>
-            <Text style={styles.switchIcon}>🔔</Text>
-            <Text style={styles.rowText}>Экспорт</Text>
+            <Text style={[styles.switchIcon, { color: iconTint }]}>🔔</Text>
+            <Text style={[styles.rowText, { color: colors.textMain }]}>Экспорт</Text>
           </TouchableOpacity>
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
           <TouchableOpacity style={styles.row}>
-            <Text style={styles.switchIcon}>㊢</Text>
-            <Text style={styles.rowText}>Импорт</Text>
+            <Text style={[styles.switchIcon, { color: iconTint }]}>㊢</Text>
+            <Text style={[styles.rowText, { color: colors.textMain }]}>Импорт</Text>
           </TouchableOpacity>
         </View>
 
-        <View style={styles.listSection}>
+        <View style={[styles.listSection, sectionCardStyle]}>
           <TouchableOpacity style={styles.row}>
-            <Text style={styles.switchIcon}>👥</Text>
-            <Text style={styles.rowText}>Выйти</Text>
+            <Text style={[styles.switchIcon, { color: iconTint }]}>👥</Text>
+            <Text style={[styles.rowText, { color: colors.textMain }]}>Выйти</Text>
           </TouchableOpacity>
-          <View style={styles.divider} />
+          <View style={[styles.divider, { backgroundColor: colors.divider }]} />
           <TouchableOpacity style={styles.row}>
-            <Text style={styles.switchIcon}>👥</Text>
-            <Text style={styles.rowText}>Сменить пользователя</Text>
+            <Text style={[styles.switchIcon, { color: iconTint }]}>👥</Text>
+            <Text style={[styles.rowText, { color: colors.textMain }]}>Сменить пользователя</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -147,7 +193,10 @@ const ProfileScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 32,
   },
   hero: {
     marginTop: 8,
@@ -163,13 +212,9 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     overflow: 'hidden',
     borderWidth: 2,
-    borderColor: '#f5f7f9',
-    backgroundColor: '#fff',
-    shadowColor: 'rgba(0,0,0,0.15)',
-    shadowOpacity: 1,
+    shadowColor: '#000',
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
   },
   avatar: {
     width: '100%',
@@ -179,19 +224,19 @@ const styles = StyleSheet.create({
     marginTop: 110,
     fontSize: 20,
     fontWeight: '600',
-    color: '#0f0f0f',
   },
   userEmail: {
     marginTop: 6,
     fontSize: 14,
-    color: '#555',
   },
   listSection: {
     marginTop: 24,
-    backgroundColor: '#fff',
     borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
     paddingVertical: 6,
-    elevation: 3,
+    shadowColor: '#000',
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
   },
   row: {
     flexDirection: 'row',
@@ -200,27 +245,27 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   divider: {
-    height: 1,
-    backgroundColor: '#e5e6e8',
-    marginLeft: 56, // align with text start (16 padding + 34 icon width + 6 gap)
+    height: StyleSheet.hairlineWidth,
+    marginLeft: 56,
     marginRight: 16,
+  },
+  vectorIcon: {
+    width: 34,
+    textAlign: 'center',
   },
   switchIcon: {
     fontSize: 22,
     width: 34,
-    color: '#555',
     textAlign: 'center',
   },
   rowText: {
     fontSize: 17,
-    color: '#0f0f0f',
     marginLeft: 6,
     fontWeight: '400',
   },
   rowValue: {
     marginLeft: 'auto',
     fontSize: 17,
-    color: '#6b7280',
     fontWeight: '400',
   },
 });

@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-    Animated,
     Dimensions,
     FlatList,
     LayoutChangeEvent,
@@ -11,7 +10,17 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import Reanimated, {
+    Extrapolation,
+    interpolate,
+    useAnimatedScrollHandler,
+    useAnimatedStyle,
+    useSharedValue,
+    type SharedValue,
+} from 'react-native-reanimated';
 import AntDesign from '@expo/vector-icons/AntDesign';
+import type { FlowlyThemePalette } from '../../../theme/backdropPalette';
+import { useThemeColors } from '../../../theme/useThemeColors';
 
 export type BalanceSlide = {
     key: string;
@@ -32,6 +41,7 @@ type Totals = {
 type BalanceSliderProps = {
     slides: BalanceSlide[];
     activeIndex: number;
+    slideProgress: SharedValue<number>;
     onSelectSlide: (index: number, accountId: number | null) => void;
     onAddAccountPress: () => void;
     historyTotals: {
@@ -40,42 +50,107 @@ type BalanceSliderProps = {
     };
     formatCurrency: (value: number, withSymbol?: boolean, currency?: string) => string;
     getCurrencySymbol: (code?: string | null) => string;
-    accentColor?: string;
+    palette: FlowlyThemePalette;
 };
 
-const CARD_MARGIN = 10;
+const IndicatorDot: React.FC<{
+    index: number;
+    slideProgress: SharedValue<number>;
+    accentColor: string;
+    onPress: () => void;
+}> = ({ index, slideProgress, accentColor, onPress }) => {
+    const animatedStyle = useAnimatedStyle(() => {
+        const opacity = interpolate(
+            slideProgress.value,
+            [index - 1, index, index + 1],
+            [0.3, 1, 0.3],
+            Extrapolation.CLAMP,
+        );
+        const scale = interpolate(
+            slideProgress.value,
+            [index - 1, index, index + 1],
+            [0.9, 1.15, 0.9],
+            Extrapolation.CLAMP,
+        );
+        return {
+            opacity,
+            transform: [{ scale }],
+        };
+    });
+
+    return (
+        <TouchableOpacity
+            onPress={onPress}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+            <Reanimated.View
+                style={[styles.dot, { backgroundColor: accentColor }, animatedStyle]}
+            />
+        </TouchableOpacity>
+    );
+};
 
 export const BalanceSlider: React.FC<BalanceSliderProps> = ({
     slides,
     activeIndex,
+    slideProgress,
     onSelectSlide,
     onAddAccountPress,
     historyTotals,
     formatCurrency,
     getCurrencySymbol,
-    accentColor = '#2BAF8C',
+    palette,
 }) => {
+    const colors = useThemeColors();
     const [sliderWidth, setSliderWidth] = useState(Dimensions.get('window').width);
-    const sliderScrollX = useRef(new Animated.Value(0)).current;
     const sliderRef = useRef<FlatList<BalanceSlide>>(null);
 
-    const cardWidth = useMemo(
-        () => Math.max(sliderWidth - 32, sliderWidth * 0.9),
-        [sliderWidth],
-    );
-    const itemWidth = cardWidth + CARD_MARGIN * 2;
-    const listSidePadding = Math.max((sliderWidth - itemWidth) / 2, 0);
+    const itemWidth = useMemo(() => Math.max(sliderWidth, 1), [sliderWidth]);
+    const itemWidthShared = useSharedValue(itemWidth);
+
+    useEffect(() => {
+        itemWidthShared.value = itemWidth;
+    }, [itemWidth, itemWidthShared]);
+
     const maxSliderOffset = useMemo(
         () => Math.max((slides.length - 1) * itemWidth, 0),
         [itemWidth, slides.length],
     );
 
+    // Рефы для стабильного onViewableItemsChanged (требование FlatList)
+    const slidesRef = useRef(slides);
+    slidesRef.current = slides;
+    const activeIndexRef = useRef(activeIndex);
+    activeIndexRef.current = activeIndex;
+    const onSelectSlideRef = useRef(onSelectSlide);
+    onSelectSlideRef.current = onSelectSlide;
+
+    const viewabilityConfig = useRef({
+        itemVisiblePercentThreshold: 55,
+    }).current;
+
+    const onViewableItemsChanged = useRef(
+        ({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
+            const first = viewableItems[0];
+            if (first?.index === null || first?.index === undefined) return;
+            const nextIdx = first.index;
+            if (nextIdx !== activeIndexRef.current) {
+                const target = slidesRef.current[nextIdx];
+                if (target) {
+                    onSelectSlideRef.current(nextIdx, target.accountId ?? null);
+                }
+            }
+        },
+    ).current;
+
     useEffect(() => {
         if (!slides.length) return;
         if (activeIndex > slides.length - 1) {
             onSelectSlide(0, slides[0]?.accountId ?? null);
+            slideProgress.value = 0;
         }
-    }, [activeIndex, onSelectSlide, slides]);
+    }, [activeIndex, onSelectSlide, slideProgress, slides]);
 
     const handleLayout = useCallback(
         (e: LayoutChangeEvent) => {
@@ -99,30 +174,44 @@ export const BalanceSlider: React.FC<BalanceSliderProps> = ({
         [itemWidth, maxSliderOffset, onSelectSlide, slides],
     );
 
+    const scrollHandler = useAnimatedScrollHandler({
+        onScroll: (event) => {
+            const w = itemWidthShared.value;
+            if (w > 0) {
+                slideProgress.value = event.contentOffset.x / w;
+            }
+        },
+    });
+
     const handleMomentumScrollEnd = useCallback(
         (e: NativeSyntheticEvent<NativeScrollEvent>) => {
             const { contentOffset, layoutMeasurement } = e.nativeEvent;
-            const width = layoutMeasurement?.width || sliderWidth || 1;
+            const width = layoutMeasurement?.width || itemWidth;
             const nextIndex = Math.round(contentOffset.x / width);
             const bounded = Math.max(0, Math.min(nextIndex, slides.length - 1));
             if (bounded !== activeIndex) {
                 onSelectSlide(bounded, slides[bounded]?.accountId ?? null);
             }
         },
-        [activeIndex, onSelectSlide, slides, sliderWidth],
+        [activeIndex, itemWidth, onSelectSlide, slides],
     );
 
     const renderSlide = useCallback(
         ({ item }: { item: BalanceSlide }) => {
             if (item.isAdd) {
                 return (
-                    <View style={{ width: cardWidth, alignSelf: 'center', marginHorizontal: CARD_MARGIN }}>
+                    <View style={{ width: itemWidth }}>
                         <TouchableOpacity
                             activeOpacity={0.8}
-                            style={styles.addCard}
+                            style={[
+                                styles.addCard,
+                                {
+                                    backgroundColor: palette.glassSurface,
+                                },
+                            ]}
                             onPress={onAddAccountPress}
                         >
-                            <AntDesign name="plus-circle" size={48} color="#212121" />
+                            <AntDesign name="plus-circle" size={48} color={palette.textMain} />
                         </TouchableOpacity>
                     </View>
                 );
@@ -146,13 +235,29 @@ export const BalanceSlider: React.FC<BalanceSliderProps> = ({
                 : '—';
 
             return (
-                <View style={{ width: cardWidth, alignSelf: 'center', marginHorizontal: CARD_MARGIN }}>
-                    <View style={styles.balanceCardInner}>
+                <View style={{ width: itemWidth }}>
+                    <View
+                        style={[
+                            styles.balanceCardInner,
+                            {
+                                backgroundColor: palette.glassSurface,
+                            },
+                        ]}
+                    >
                         <View style={styles.balanceCardHeader}>
                             <View style={{ flex: 1 }}>
-                                <Text style={styles.balanceTitle}>{item.title}</Text>
-                                <Text style={styles.balanceValue}>{balanceLabel}</Text>
-                                <Text style={styles.balanceCurrencyHint}>
+                                <Text style={[styles.balanceTitle, { color: palette.textMain }]}>
+                                    {item.title}
+                                </Text>
+                                <Text style={[styles.balanceValue, { color: palette.primary }]}>
+                                    {balanceLabel}
+                                </Text>
+                                <Text
+                                    style={[
+                                        styles.balanceCurrencyHint,
+                                        { color: palette.textSecondary },
+                                    ]}
+                                >
                                     Валюта: {getCurrencySymbol(item.currency)}
                                 </Text>
                             </View>
@@ -160,86 +265,84 @@ export const BalanceSlider: React.FC<BalanceSliderProps> = ({
 
                         <View style={styles.balanceBottomRow}>
                             <View style={styles.balanceStat}>
-                                <Text style={styles.balanceStatLabel}>Доходы</Text>
-                                <Text style={styles.balanceStatValue}>{incomeLabel}</Text>
+                                <Text
+                                    style={[
+                                        styles.balanceStatLabel,
+                                        { color: palette.textSecondary },
+                                    ]}
+                                >
+                                    Доходы
+                                </Text>
+                                <Text
+                                    style={[styles.balanceStatValue, { color: palette.textMain }]}
+                                >
+                                    {incomeLabel}
+                                </Text>
                             </View>
-                            <View style={styles.balanceDivider} />
+                            <View
+                                style={[
+                                    styles.balanceDivider,
+                                    { backgroundColor: palette.cardBorder },
+                                ]}
+                            />
                             <View style={styles.balanceStat}>
-                                <Text style={styles.balanceStatLabel}>Расходы</Text>
-                                <Text style={styles.balanceStatValue}>{expenseLabel}</Text>
+                                <Text
+                                    style={[
+                                        styles.balanceStatLabel,
+                                        { color: palette.textSecondary },
+                                    ]}
+                                >
+                                    Расходы
+                                </Text>
+                                <Text
+                                    style={[styles.balanceStatValue, { color: palette.textMain }]}
+                                >
+                                    {expenseLabel}
+                                </Text>
                             </View>
                         </View>
                     </View>
                 </View>
             );
         },
-        [cardWidth, formatCurrency, getCurrencySymbol, historyTotals, onAddAccountPress],
+        [formatCurrency, getCurrencySymbol, historyTotals, itemWidth, onAddAccountPress, palette],
     );
 
     return (
         <View style={styles.wrapper} onLayout={handleLayout}>
-            <Animated.FlatList
+            <Reanimated.FlatList
                 ref={sliderRef}
                 data={slides}
+                extraData={palette}
                 horizontal
-                pagingEnabled
                 scrollEventThrottle={16}
                 showsHorizontalScrollIndicator={false}
-                keyExtractor={item => item.key}
+                keyExtractor={(item) => item.key}
                 renderItem={renderSlide}
-                snapToInterval={Math.max(itemWidth, 1)}
+                snapToInterval={itemWidth}
                 snapToAlignment="start"
                 decelerationRate="fast"
                 disableIntervalMomentum
-                contentContainerStyle={[styles.listContent, { paddingHorizontal: listSidePadding }]}
                 initialNumToRender={slides.length}
                 maxToRenderPerBatch={slides.length}
                 windowSize={Math.max(slides.length * 2, 5)}
                 removeClippedSubviews={false}
-                onScroll={Animated.event(
-                    [{ nativeEvent: { contentOffset: { x: sliderScrollX } } }],
-                    { useNativeDriver: false },
-                )}
+                onScroll={scrollHandler}
                 onMomentumScrollEnd={handleMomentumScrollEnd}
+                viewabilityConfig={viewabilityConfig}
+                onViewableItemsChanged={onViewableItemsChanged}
             />
 
             <View style={styles.indicators}>
-                {slides.map((_, idx) => {
-                    const inputRange = [
-                        (idx - 1) * sliderWidth,
-                        idx * sliderWidth,
-                        (idx + 1) * sliderWidth,
-                    ];
-                    const dotOpacity = sliderScrollX.interpolate({
-                        inputRange,
-                        outputRange: [0.3, 1, 0.3],
-                        extrapolate: 'clamp',
-                    });
-                    const dotScale = sliderScrollX.interpolate({
-                        inputRange,
-                        outputRange: [0.9, 1.1, 0.9],
-                        extrapolate: 'clamp',
-                    });
-                    return (
-                        <TouchableOpacity
-                            key={idx}
-                            onPress={() => scrollToSlide(idx)}
-                            activeOpacity={0.7}
-                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                        >
-                            <Animated.View
-                                style={[
-                                    styles.dot,
-                                    {
-                                        backgroundColor: accentColor,
-                                        opacity: dotOpacity,
-                                        transform: [{ scale: dotScale }],
-                                    },
-                                ]}
-                            />
-                        </TouchableOpacity>
-                    );
-                })}
+                {slides.map((slide, idx) => (
+                    <IndicatorDot
+                        key={slide.key}
+                        index={idx}
+                        slideProgress={slideProgress}
+                        accentColor={colors.sliderDot}
+                        onPress={() => scrollToSlide(idx)}
+                    />
+                ))}
             </View>
         </View>
     );
@@ -247,33 +350,23 @@ export const BalanceSlider: React.FC<BalanceSliderProps> = ({
 
 const styles = StyleSheet.create({
     wrapper: { paddingVertical: 4 },
-    listContent: { paddingHorizontal: 0, alignItems: 'center' },
     addCard: {
         height: 220,
+        marginHorizontal: 16,
         borderRadius: 24,
-        borderWidth: 1,
-        borderColor: 'rgba(0,0,0,0.08)',
-        backgroundColor: 'rgba(255,255,255,0.7)',
         alignItems: 'center',
         justifyContent: 'center',
     },
     balanceCardInner: {
-        backgroundColor: 'rgba(255,255,255,0.58)',
+        marginHorizontal: 16,
         borderRadius: 32,
         paddingHorizontal: 22,
         paddingVertical: 20,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.62)',
-        shadowColor: '#000',
-        shadowOpacity: 0.08,
-        shadowRadius: 14,
-        shadowOffset: { width: 0, height: 8 },
-        elevation: 6,
     },
     balanceCardHeader: { flexDirection: 'row', alignItems: 'flex-start' },
-    balanceTitle: { fontSize: 16, color: '#252A32' },
-    balanceValue: { fontSize: 26, fontWeight: '700', color: '#2BAF8C', marginTop: 6 },
-    balanceCurrencyHint: { fontSize: 13, color: '#5F6670', marginTop: 4 },
+    balanceTitle: { fontSize: 16 },
+    balanceValue: { fontSize: 26, fontWeight: '700', marginTop: 6 },
+    balanceCurrencyHint: { fontSize: 13, marginTop: 4 },
     balanceBottomRow: {
         flexDirection: 'row',
         marginTop: 16,
@@ -281,12 +374,11 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
     },
     balanceStat: { flex: 1 },
-    balanceStatLabel: { fontSize: 14, color: '#5F6670' },
-    balanceStatValue: { fontSize: 17, fontWeight: '600', color: '#1D2025', marginTop: 4 },
+    balanceStatLabel: { fontSize: 14 },
+    balanceStatValue: { fontSize: 17, fontWeight: '600', marginTop: 4 },
     balanceDivider: {
         width: 1,
         height: '100%',
-        backgroundColor: 'rgba(0,0,0,0.08)',
         marginHorizontal: 14,
     },
     indicators: {
@@ -296,5 +388,5 @@ const styles = StyleSheet.create({
         gap: 6,
         marginTop: 12,
     },
-    dot: { width: 8, height: 8, borderRadius: 4, opacity: 0.3 },
+    dot: { width: 6, height: 6, borderRadius: 4 },
 });
